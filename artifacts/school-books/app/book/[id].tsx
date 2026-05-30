@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   Platform,
   ScrollView,
@@ -21,7 +21,7 @@ export default function EditBookScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { getBook, updateBook } = useBooks();
+  const { getBook, updateBook, gradeStudents } = useBooks();
 
   const book = getBook(id);
 
@@ -30,7 +30,6 @@ export default function EditBookScreen() {
     bookName: book?.bookName ?? "",
     part: book?.part ?? "",
     grade: book?.grade ?? "",
-    studentCount: String(book?.studentCount ?? ""),
     receivedLastYear: String(book?.receivedLastYear ?? ""),
     schoolBalance: String(book?.schoolBalance ?? ""),
   });
@@ -38,18 +37,18 @@ export default function EditBookScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [gradeOpen, setGradeOpen] = useState(false);
 
-  useEffect(() => {
-    if (!book) router.back();
-  }, [book]);
+  if (!book) {
+    router.back();
+    return null;
+  }
 
-  if (!book) return null;
+  const students = gradeStudents[form.grade] ?? 0;
+  const calcNeed = Math.max(0, students - (Number(form.schoolBalance) || 0));
 
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.bookName.trim()) e.bookName = "اسم الكتاب مطلوب";
     if (!form.grade) e.grade = "الصف مطلوب";
-    if (!form.studentCount || isNaN(Number(form.studentCount)))
-      e.studentCount = "أدخل عدداً صحيحاً";
     return e;
   };
 
@@ -65,7 +64,6 @@ export default function EditBookScreen() {
       bookName: form.bookName.trim(),
       part: form.part.trim(),
       grade: form.grade,
-      studentCount: Number(form.studentCount) || 0,
       receivedLastYear: Number(form.receivedLastYear) || 0,
       schoolBalance: Number(form.schoolBalance) || 0,
     });
@@ -74,138 +72,97 @@ export default function EditBookScreen() {
   };
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
-  const calcNeed = Math.max(
-    0,
-    (Number(form.studentCount) || 0) - (Number(form.schoolBalance) || 0)
-  );
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <View
-        style={[
-          styles.navBar,
-          {
-            paddingTop: topInset + 8,
-            backgroundColor: colors.background,
-            borderBottomColor: colors.border,
-          },
-        ]}
-      >
+      <View style={[styles.navBar, { paddingTop: topInset + 8, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
           <Feather name="arrow-right" size={22} color={colors.mutedForeground} />
         </TouchableOpacity>
         <Text style={[styles.navTitle, { color: colors.foreground, fontFamily: "NotoKufiArabic_700Bold" }]}>
           تعديل الكتاب
         </Text>
-        <TouchableOpacity
-          onPress={handleSave}
-          style={[styles.saveChip, { backgroundColor: colors.primary }]}
-        >
-          <Text style={[styles.saveChipText, { fontFamily: "NotoKufiArabic_700Bold" }]}>
-            حفظ
-          </Text>
+        <TouchableOpacity onPress={handleSave} style={[styles.saveChip, { backgroundColor: colors.primary }]}>
+          <Text style={[styles.saveChipText, { fontFamily: "NotoKufiArabic_700Bold" }]}>حفظ</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView
-        contentContainerStyle={[
-          styles.scroll,
-          { paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 24 },
-        ]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 24 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <GlassCard style={styles.section}>
-          <Field
-            label="الرقم"
-            value={form.number}
-            onChangeText={(t) => setForm({ ...form, number: t })}
-            numeric
-          />
+          <Field label="الرقم" value={form.number} onChangeText={(t) => setForm({ ...form, number: t })} numeric />
           <Divider />
           <Field
             label="اسم الكتاب *"
             value={form.bookName}
-            onChangeText={(t) => {
-              setForm({ ...form, bookName: t });
-              if (errors.bookName) setErrors({ ...errors, bookName: "" });
-            }}
-            placeholder="اسم الكتاب"
+            onChangeText={(t) => { setForm({ ...form, bookName: t }); if (errors.bookName) setErrors({ ...errors, bookName: "" }); }}
             error={errors.bookName}
           />
           <Divider />
-          <Field
-            label="الجزء"
-            value={form.part}
-            onChangeText={(t) => setForm({ ...form, part: t })}
-            placeholder="الجزء"
-          />
+          <Field label="الجزء" value={form.part} onChangeText={(t) => setForm({ ...form, part: t })} />
         </GlassCard>
 
-        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-          الصف الدراسي
-        </Text>
-
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>الصف الدراسي</Text>
         <GlassCard style={styles.section}>
-          <TouchableOpacity
-            onPress={() => setGradeOpen(!gradeOpen)}
-            style={styles.gradeSelector}
-          >
-            <Feather
-              name={gradeOpen ? "chevron-up" : "chevron-down"}
-              size={18}
-              color={colors.mutedForeground}
-            />
+          <TouchableOpacity onPress={() => setGradeOpen(!gradeOpen)} style={styles.gradeSelector}>
+            <Feather name={gradeOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.mutedForeground} />
             <Text style={[styles.gradeValue, { color: form.grade ? colors.foreground : colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
               {form.grade || "اختر الصف"}
             </Text>
             <Text style={[styles.gradeLabel, { color: colors.mutedForeground }]}>الصف</Text>
           </TouchableOpacity>
-          {errors.grade && (
-            <Text style={[styles.error, { color: colors.destructive }]}>{errors.grade}</Text>
-          )}
+          {errors.grade && <Text style={[styles.error, { color: colors.destructive }]}>{errors.grade}</Text>}
           {gradeOpen && (
             <View style={[styles.gradeList, { borderTopColor: colors.border }]}>
-              {GRADES.map((g) => (
-                <TouchableOpacity
-                  key={g}
-                  style={[
-                    styles.gradeItem,
-                    { backgroundColor: form.grade === g ? "rgba(29,184,142,0.12)" : "transparent" },
-                  ]}
-                  onPress={() => {
-                    setForm({ ...form, grade: g });
-                    setErrors({ ...errors, grade: "" });
-                    setGradeOpen(false);
-                  }}
-                >
-                  <Text style={[styles.gradeItemText, { color: form.grade === g ? colors.primary : colors.foreground, fontFamily: "NotoKufiArabic_400Regular" }]}>
-                    {g}
-                  </Text>
-                  {form.grade === g && <Feather name="check" size={16} color={colors.primary} />}
-                </TouchableOpacity>
-              ))}
+              {GRADES.map((g) => {
+                const gs = gradeStudents[g] ?? 0;
+                return (
+                  <TouchableOpacity
+                    key={g}
+                    style={[styles.gradeItem, { backgroundColor: form.grade === g ? "rgba(29,184,142,0.12)" : "transparent" }]}
+                    onPress={() => { setForm({ ...form, grade: g }); setErrors({ ...errors, grade: "" }); setGradeOpen(false); }}
+                  >
+                    <View style={styles.gradeItemRight}>
+                      <Text style={[styles.gradeItemText, { color: form.grade === g ? colors.primary : colors.foreground, fontFamily: "NotoKufiArabic_400Regular" }]}>{g}</Text>
+                      {gs > 0 && <Text style={[styles.gradeItemSub, { color: colors.mutedForeground }]}>{gs} طالب</Text>}
+                    </View>
+                    {form.grade === g && <Feather name="check" size={16} color={colors.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
         </GlassCard>
 
-        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>الأعداد</Text>
+        {students > 0 && (
+          <View style={[styles.studentsInfo, { backgroundColor: "rgba(29,184,142,0.08)", borderColor: "rgba(29,184,142,0.2)" }]}>
+            <Feather name="users" size={14} color={colors.primary} />
+            <Text style={[styles.studentsInfoText, { color: colors.primary, fontFamily: "NotoKufiArabic_400Regular" }]}>
+              عدد طلاب {form.grade}: {students} طالب
+            </Text>
+          </View>
+        )}
 
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>الأعداد</Text>
         <GlassCard style={styles.section}>
-          <Field label="عدد الطلاب *" value={form.studentCount} onChangeText={(t) => { setForm({ ...form, studentCount: t }); if (errors.studentCount) setErrors({ ...errors, studentCount: "" }); }} numeric error={errors.studentCount} />
+          <Field label="رصيد المدرسة" value={form.schoolBalance} onChangeText={(t) => setForm({ ...form, schoolBalance: t })} numeric />
           <Divider />
           <Field label="المستلم في العام السابق" value={form.receivedLastYear} onChangeText={(t) => setForm({ ...form, receivedLastYear: t })} numeric />
-          <Divider />
-          <Field label="رصيد المدرسة" value={form.schoolBalance} onChangeText={(t) => setForm({ ...form, schoolBalance: t })} numeric />
         </GlassCard>
 
         <GlassCard variant="accent" style={styles.needPreview}>
-          <Text style={[styles.needLabel, { color: colors.primary, fontFamily: "NotoKufiArabic_400Regular" }]}>
-            الحاجة الفعلية
+          <Text style={[styles.needLabel, { color: colors.primary, fontFamily: "NotoKufiArabic_400Regular" }]}>الحاجة الفعلية</Text>
+          <Text style={[styles.needValue, { color: calcNeed > 0 ? colors.accent : colors.primary, fontFamily: "SpaceGrotesk_600SemiBold" }]}>
+            {students > 0 ? calcNeed : "—"}
           </Text>
-          <Text style={[styles.needValue, { color: calcNeed > 0 ? colors.warning : colors.primary, fontFamily: "SpaceGrotesk_600SemiBold" }]}>
-            {calcNeed}
-          </Text>
+          {students > 0 && (
+            <Text style={[styles.needFormula, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
+              {students} طالب − {Number(form.schoolBalance) || 0} رصيد = {calcNeed}
+            </Text>
+          )}
         </GlassCard>
       </ScrollView>
     </View>
@@ -226,7 +183,7 @@ function Field({ label, value, onChangeText, placeholder, numeric, error }: {
         onChangeText={onChangeText}
         keyboardType={numeric ? "numeric" : "default"}
         textAlign="right"
-        placeholder={placeholder ?? "0"}
+        placeholder={placeholder ?? (numeric ? "0" : "")}
         placeholderTextColor={colors.mutedForeground}
       />
       {error ? <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text> : null}
@@ -258,8 +215,13 @@ const styles = StyleSheet.create({
   gradeLabel: { fontSize: 11, fontFamily: "NotoKufiArabic_400Regular" },
   gradeList: { borderTopWidth: 1 },
   gradeItem: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12 },
+  gradeItemRight: { flex: 1, alignItems: "flex-end" },
   gradeItemText: { fontSize: 14 },
+  gradeItemSub: { fontSize: 11, marginTop: 2, fontFamily: "SpaceGrotesk_400Regular" },
+  studentsInfo: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 10, borderWidth: 1, marginTop: 10 },
+  studentsInfoText: { flex: 1, fontSize: 13, textAlign: "right" },
   needPreview: { padding: 20, alignItems: "center", marginTop: 16 },
   needLabel: { fontSize: 13, marginBottom: 4 },
-  needValue: { fontSize: 40 },
+  needValue: { fontSize: 44, lineHeight: 52 },
+  needFormula: { fontSize: 12, marginTop: 4 },
 });

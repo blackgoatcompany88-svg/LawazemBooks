@@ -20,16 +20,16 @@ import { useColors } from "@/hooks/useColors";
 export default function NewBookScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { books, addBook } = useBooks();
+  const { books, gradeStudents, addBook } = useBooks();
 
-  const nextNumber = books.length > 0 ? Math.max(...books.map((b) => b.number)) + 1 : 1;
+  const nextNumber =
+    books.length > 0 ? Math.max(...books.map((b) => b.number)) + 1 : 1;
 
   const [form, setForm] = useState({
     number: String(nextNumber),
     bookName: "",
     part: "",
     grade: "",
-    studentCount: "",
     receivedLastYear: "",
     schoolBalance: "",
   });
@@ -37,12 +37,15 @@ export default function NewBookScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [gradeOpen, setGradeOpen] = useState(false);
 
+  const students = gradeStudents[form.grade] ?? 0;
+  const previewNeed = form.schoolBalance
+    ? Math.max(0, students - (Number(form.schoolBalance) || 0))
+    : null;
+
   const validate = () => {
     const e: Record<string, string> = {};
     if (!form.bookName.trim()) e.bookName = "اسم الكتاب مطلوب";
     if (!form.grade) e.grade = "الصف مطلوب";
-    if (!form.studentCount || isNaN(Number(form.studentCount)))
-      e.studentCount = "أدخل عدداً صحيحاً";
     return e;
   };
 
@@ -58,7 +61,6 @@ export default function NewBookScreen() {
       bookName: form.bookName.trim(),
       part: form.part.trim(),
       grade: form.grade,
-      studentCount: Number(form.studentCount) || 0,
       receivedLastYear: Number(form.receivedLastYear) || 0,
       schoolBalance: Number(form.schoolBalance) || 0,
     });
@@ -73,11 +75,7 @@ export default function NewBookScreen() {
       <View
         style={[
           styles.navBar,
-          {
-            paddingTop: topInset + 8,
-            backgroundColor: colors.background,
-            borderBottomColor: colors.border,
-          },
+          { paddingTop: topInset + 8, backgroundColor: colors.background, borderBottomColor: colors.border },
         ]}
       >
         <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
@@ -90,9 +88,7 @@ export default function NewBookScreen() {
           onPress={handleSave}
           style={[styles.saveChip, { backgroundColor: colors.primary }]}
         >
-          <Text style={[styles.saveChipText, { fontFamily: "NotoKufiArabic_700Bold" }]}>
-            حفظ
-          </Text>
+          <Text style={[styles.saveChipText, { fontFamily: "NotoKufiArabic_700Bold" }]}>حفظ</Text>
         </TouchableOpacity>
       </View>
 
@@ -105,136 +101,102 @@ export default function NewBookScreen() {
         showsVerticalScrollIndicator={false}
       >
         <GlassCard style={styles.section}>
-          <NumInput
-            label="الرقم التسلسلي"
-            value={form.number}
-            onChangeText={(t) => setForm({ ...form, number: t })}
-          />
+          <Field label="الرقم التسلسلي" value={form.number} onChangeText={(t) => setForm({ ...form, number: t })} numeric />
           <Divider />
-          <TextFieldInput
+          <Field
             label="اسم الكتاب *"
             value={form.bookName}
-            onChangeText={(t) => {
-              setForm({ ...form, bookName: t });
-              if (errors.bookName) setErrors({ ...errors, bookName: "" });
-            }}
+            onChangeText={(t) => { setForm({ ...form, bookName: t }); if (errors.bookName) setErrors({ ...errors, bookName: "" }); }}
             placeholder="مثال: الرياضيات"
             error={errors.bookName}
           />
           <Divider />
-          <TextFieldInput
-            label="الجزء"
-            value={form.part}
-            onChangeText={(t) => setForm({ ...form, part: t })}
-            placeholder="مثال: الأول"
-          />
+          <Field label="الجزء" value={form.part} onChangeText={(t) => setForm({ ...form, part: t })} placeholder="مثال: الأول" />
         </GlassCard>
 
-        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-          الصف الدراسي
-        </Text>
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>الصف الدراسي</Text>
 
         <GlassCard style={styles.section}>
-          <TouchableOpacity
-            onPress={() => setGradeOpen(!gradeOpen)}
-            style={styles.gradeSelector}
-          >
-            <Feather
-              name={gradeOpen ? "chevron-up" : "chevron-down"}
-              size={18}
-              color={colors.mutedForeground}
-            />
-            <Text
-              style={[
-                styles.gradeValue,
-                {
-                  color: form.grade ? colors.foreground : colors.mutedForeground,
-                  fontFamily: "NotoKufiArabic_400Regular",
-                },
-              ]}
-            >
+          <TouchableOpacity onPress={() => setGradeOpen(!gradeOpen)} style={styles.gradeSelector}>
+            <Feather name={gradeOpen ? "chevron-up" : "chevron-down"} size={18} color={colors.mutedForeground} />
+            <Text style={[styles.gradeValue, { color: form.grade ? colors.foreground : colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
               {form.grade || "اختر الصف"}
             </Text>
-            <Text style={[styles.gradeLabel, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
-              الصف *
-            </Text>
+            <Text style={[styles.gradeLabel, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>الصف *</Text>
           </TouchableOpacity>
-          {errors.grade && (
-            <Text style={[styles.error, { color: colors.destructive }]}>{errors.grade}</Text>
-          )}
+          {errors.grade && <Text style={[styles.error, { color: colors.destructive }]}>{errors.grade}</Text>}
           {gradeOpen && (
             <View style={[styles.gradeList, { borderTopColor: colors.border }]}>
-              {GRADES.map((g) => (
-                <TouchableOpacity
-                  key={g}
-                  style={[
-                    styles.gradeItem,
-                    {
-                      backgroundColor:
-                        form.grade === g ? "rgba(29,184,142,0.12)" : "transparent",
-                    },
-                  ]}
-                  onPress={() => {
-                    setForm({ ...form, grade: g });
-                    if (errors.grade) setErrors({ ...errors, grade: "" });
-                    setGradeOpen(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.gradeItemText,
-                      {
-                        color: form.grade === g ? colors.primary : colors.foreground,
-                        fontFamily: "NotoKufiArabic_400Regular",
-                      },
-                    ]}
+              {GRADES.map((g) => {
+                const gs = gradeStudents[g] ?? 0;
+                return (
+                  <TouchableOpacity
+                    key={g}
+                    style={[styles.gradeItem, { backgroundColor: form.grade === g ? "rgba(29,184,142,0.12)" : "transparent" }]}
+                    onPress={() => { setForm({ ...form, grade: g }); if (errors.grade) setErrors({ ...errors, grade: "" }); setGradeOpen(false); }}
                   >
-                    {g}
-                  </Text>
-                  {form.grade === g && (
-                    <Feather name="check" size={16} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
+                    <View style={styles.gradeItemRight}>
+                      <Text style={[styles.gradeItemText, { color: form.grade === g ? colors.primary : colors.foreground, fontFamily: "NotoKufiArabic_400Regular" }]}>
+                        {g}
+                      </Text>
+                      {gs > 0 && (
+                        <Text style={[styles.gradeItemSub, { color: colors.mutedForeground }]}>{gs} طالب</Text>
+                      )}
+                    </View>
+                    {form.grade === g && <Feather name="check" size={16} color={colors.primary} />}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           )}
         </GlassCard>
 
-        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
-          الأعداد
-        </Text>
+        {form.grade && students === 0 && (
+          <View style={[styles.hint, { backgroundColor: "rgba(240,160,48,0.08)", borderColor: "rgba(240,160,48,0.25)" }]}>
+            <Feather name="info" size={14} color={colors.accent} />
+            <Text style={[styles.hintText, { color: colors.accent, fontFamily: "NotoKufiArabic_400Regular" }]}>
+              لم يُحدَّد عدد طلاب لهذا الصف بعد. يمكنك ضبطه من الصفحة الرئيسية.
+            </Text>
+          </View>
+        )}
+
+        {form.grade && students > 0 && (
+          <View style={[styles.studentsInfo, { backgroundColor: "rgba(29,184,142,0.08)", borderColor: "rgba(29,184,142,0.2)" }]}>
+            <Feather name="users" size={14} color={colors.primary} />
+            <Text style={[styles.studentsInfoText, { color: colors.primary, fontFamily: "NotoKufiArabic_400Regular" }]}>
+              عدد طلاب {form.grade}: {students} طالب
+            </Text>
+          </View>
+        )}
+
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>الأعداد</Text>
 
         <GlassCard style={styles.section}>
-          <NumInput
-            label="عدد الطلاب *"
-            value={form.studentCount}
-            onChangeText={(t) => {
-              setForm({ ...form, studentCount: t });
-              if (errors.studentCount) setErrors({ ...errors, studentCount: "" });
-            }}
-            error={errors.studentCount}
-          />
-          <Divider />
-          <NumInput
-            label="العدد المستلم في العام السابق"
-            value={form.receivedLastYear}
-            onChangeText={(t) => setForm({ ...form, receivedLastYear: t })}
-          />
-          <Divider />
-          <NumInput
+          <Field
             label="رصيد المدرسة"
             value={form.schoolBalance}
             onChangeText={(t) => setForm({ ...form, schoolBalance: t })}
+            numeric
+          />
+          <Divider />
+          <Field
+            label="العدد المستلم في العام السابق"
+            value={form.receivedLastYear}
+            onChangeText={(t) => setForm({ ...form, receivedLastYear: t })}
+            numeric
           />
         </GlassCard>
 
-        {form.studentCount && form.schoolBalance && (
+        {previewNeed !== null && students > 0 && (
           <GlassCard variant="accent" style={styles.needPreview}>
             <Text style={[styles.needLabel, { color: colors.primary, fontFamily: "NotoKufiArabic_400Regular" }]}>
               الحاجة الفعلية المحسوبة
             </Text>
-            <Text style={[styles.needValue, { color: colors.primary, fontFamily: "SpaceGrotesk_600SemiBold" }]}>
-              {Math.max(0, (Number(form.studentCount) || 0) - (Number(form.schoolBalance) || 0))}
+            <Text style={[styles.needValue, { color: previewNeed > 0 ? colors.accent : colors.primary, fontFamily: "SpaceGrotesk_600SemiBold" }]}>
+              {previewNeed}
+            </Text>
+            <Text style={[styles.needFormula, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
+              {students} طالب − {Number(form.schoolBalance) || 0} رصيد = {previewNeed}
             </Text>
           </GlassCard>
         )}
@@ -243,62 +205,21 @@ export default function NewBookScreen() {
   );
 }
 
-function TextFieldInput({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  error,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (t: string) => void;
-  placeholder?: string;
-  error?: string;
+function Field({ label, value, onChangeText, placeholder, numeric, error }: {
+  label: string; value: string; onChangeText: (t: string) => void;
+  placeholder?: string; numeric?: boolean; error?: string;
 }) {
   const colors = useColors();
   return (
     <View style={styles.field}>
-      <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
-        {label}
-      </Text>
+      <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>{label}</Text>
       <TextInput
-        style={[styles.fieldInput, { color: colors.foreground, borderColor: error ? colors.destructive : "transparent", fontFamily: "NotoKufiArabic_400Regular" }]}
+        style={[styles.fieldInput, { color: colors.foreground, borderColor: error ? colors.destructive : "transparent", fontFamily: numeric ? "SpaceGrotesk_400Regular" : "NotoKufiArabic_400Regular" }]}
         value={value}
         onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor={colors.mutedForeground}
+        keyboardType={numeric ? "numeric" : "default"}
         textAlign="right"
-      />
-      {error ? <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text> : null}
-    </View>
-  );
-}
-
-function NumInput({
-  label,
-  value,
-  onChangeText,
-  error,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (t: string) => void;
-  error?: string;
-}) {
-  const colors = useColors();
-  return (
-    <View style={styles.field}>
-      <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
-        {label}
-      </Text>
-      <TextInput
-        style={[styles.fieldInput, { color: colors.foreground, borderColor: error ? colors.destructive : "transparent", fontFamily: "SpaceGrotesk_400Regular" }]}
-        value={value}
-        onChangeText={onChangeText}
-        keyboardType="numeric"
-        textAlign="right"
-        placeholder="0"
+        placeholder={placeholder ?? (numeric ? "0" : "")}
         placeholderTextColor={colors.mutedForeground}
       />
       {error ? <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text> : null}
@@ -313,61 +234,32 @@ function Divider() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  navBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-  },
+  navBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1 },
   navTitle: { fontSize: 17 },
-  saveChip: {
-    paddingHorizontal: 18,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
+  saveChip: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20 },
   saveChipText: { color: "#fff", fontSize: 14 },
   scroll: { padding: 20 },
-  sectionLabel: {
-    fontSize: 12,
-    textAlign: "right",
-    marginBottom: 8,
-    marginTop: 16,
-    fontFamily: "NotoKufiArabic_400Regular",
-  },
+  sectionLabel: { fontSize: 12, textAlign: "right", marginBottom: 8, marginTop: 16, fontFamily: "NotoKufiArabic_400Regular" },
   section: { overflow: "hidden" },
   field: { padding: 14 },
   fieldLabel: { fontSize: 11, textAlign: "right", marginBottom: 6 },
-  fieldInput: {
-    fontSize: 16,
-    paddingVertical: 2,
-    borderBottomWidth: 1,
-  },
+  fieldInput: { fontSize: 16, paddingVertical: 2, borderBottomWidth: 1 },
   error: { fontSize: 11, textAlign: "right", marginTop: 4 },
   divider: { height: 1, marginHorizontal: 14 },
-  gradeSelector: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 14,
-    gap: 8,
-  },
+  gradeSelector: { flexDirection: "row", alignItems: "center", padding: 14, gap: 8 },
   gradeValue: { flex: 1, fontSize: 15, textAlign: "right" },
   gradeLabel: { fontSize: 11 },
   gradeList: { borderTopWidth: 1 },
-  gradeItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
+  gradeItem: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12 },
+  gradeItemRight: { flex: 1, alignItems: "flex-end" },
   gradeItemText: { fontSize: 14 },
-  needPreview: {
-    padding: 20,
-    alignItems: "center",
-    marginTop: 16,
-  },
+  gradeItemSub: { fontSize: 11, marginTop: 2, fontFamily: "SpaceGrotesk_400Regular" },
+  hint: { flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 12, borderRadius: 10, borderWidth: 1, marginTop: 10 },
+  hintText: { flex: 1, fontSize: 12, lineHeight: 18, textAlign: "right" },
+  studentsInfo: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 10, borderWidth: 1, marginTop: 10 },
+  studentsInfoText: { flex: 1, fontSize: 13, textAlign: "right" },
+  needPreview: { padding: 20, alignItems: "center", marginTop: 16 },
   needLabel: { fontSize: 13, marginBottom: 4 },
-  needValue: { fontSize: 40 },
+  needValue: { fontSize: 44, lineHeight: 52 },
+  needFormula: { fontSize: 12, marginTop: 4 },
 });

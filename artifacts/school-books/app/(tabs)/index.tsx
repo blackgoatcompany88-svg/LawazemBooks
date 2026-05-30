@@ -2,13 +2,15 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
+  Alert,
   LayoutAnimation,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   UIManager,
   View,
@@ -16,7 +18,6 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BookCard } from "@/components/BookCard";
-import { EmptyState } from "@/components/EmptyState";
 import { GlassCard } from "@/components/GlassCard";
 import { SearchBar } from "@/components/SearchBar";
 import { BookEntry, GRADES, useBooks } from "@/context/BooksContext";
@@ -33,10 +34,88 @@ interface GradeGroup {
   grade: string;
   books: BookEntry[];
   totalBooks: number;
-  totalStudents: number;
+  students: number;
   totalBalance: number;
   totalNeed: number;
   totalReceived: number;
+}
+
+function StudentsEditor({
+  grade,
+  students,
+}: {
+  grade: string;
+  students: number;
+}) {
+  const colors = useColors();
+  const { updateGradeStudents } = useBooks();
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(String(students));
+  const inputRef = useRef<TextInput>(null);
+
+  const commit = () => {
+    const n = parseInt(val, 10);
+    const count = isNaN(n) || n < 0 ? 0 : n;
+    updateGradeStudents(grade, count);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <TextInput
+        ref={inputRef}
+        style={[
+          styles.studentsInput,
+          {
+            color: colors.accent,
+            borderColor: colors.accent,
+            fontFamily: "SpaceGrotesk_600SemiBold",
+          },
+        ]}
+        value={val}
+        onChangeText={setVal}
+        keyboardType="numeric"
+        returnKeyType="done"
+        onSubmitEditing={commit}
+        onBlur={commit}
+        autoFocus
+        selectTextOnFocus
+      />
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      onPress={() => {
+        setVal(String(students));
+        setEditing(true);
+      }}
+      style={styles.studentsBtn}
+      hitSlop={8}
+    >
+      <Feather name="users" size={12} color={colors.accent} />
+      <Text
+        style={[
+          styles.studentsCount,
+          { color: colors.accent, fontFamily: "SpaceGrotesk_600SemiBold" },
+        ]}
+      >
+        {students}
+      </Text>
+      <Text
+        style={[
+          styles.studentsLabel,
+          {
+            color: colors.accent,
+            fontFamily: "NotoKufiArabic_400Regular",
+          },
+        ]}
+      >
+        طالب
+      </Text>
+      <Feather name="edit-2" size={10} color={colors.accent} style={{ opacity: 0.7 }} />
+    </TouchableOpacity>
+  );
 }
 
 function GradeSection({
@@ -50,9 +129,9 @@ function GradeSection({
 }) {
   const colors = useColors();
   const coverageRatio =
-    group.totalStudents > 0
-      ? Math.min(1, group.totalBalance / group.totalStudents)
-      : 1;
+    group.students > 0
+      ? Math.min(1, group.totalBalance / (group.students * Math.max(1, group.totalBooks)))
+      : group.totalBooks > 0 ? 0 : 1;
   const barColor =
     coverageRatio >= 1
       ? colors.primary
@@ -75,40 +154,13 @@ function GradeSection({
           },
         ]}
       >
-        <View style={styles.gradeHeaderRight}>
-          <Text
-            style={[
-              styles.gradeName,
-              { color: colors.foreground, fontFamily: "NotoKufiArabic_700Bold" },
-            ]}
-          >
-            {group.grade}
-          </Text>
-          <Text
-            style={[
-              styles.gradeMeta,
-              {
-                color: colors.mutedForeground,
-                fontFamily: "NotoKufiArabic_400Regular",
-              },
-            ]}
-          >
-            {group.totalBooks} {group.totalBooks === 1 ? "كتاب" : "كتب"}
-          </Text>
-        </View>
-
-        <View style={styles.gradeStats}>
-          <StatPill
-            value={group.totalBalance}
-            label="متوفر"
-            color={colors.primary}
-          />
+        {/* Left side: stats + chevron */}
+        <View style={styles.gradeLeft}>
+          <StatPill value={group.totalBalance} label="متوفر" color={colors.primary} />
           <StatPill
             value={group.totalNeed}
             label="نقص"
-            color={
-              group.totalNeed > 0 ? colors.accent : colors.mutedForeground
-            }
+            color={group.totalNeed > 0 ? colors.accent : colors.mutedForeground}
           />
           <Feather
             name={expanded ? "chevron-up" : "chevron-down"}
@@ -117,8 +169,38 @@ function GradeSection({
             style={{ marginLeft: 6 }}
           />
         </View>
+
+        {/* Right side: name + students editor */}
+        <View style={styles.gradeRight}>
+          <Text
+            style={[
+              styles.gradeName,
+              {
+                color: colors.foreground,
+                fontFamily: "NotoKufiArabic_700Bold",
+              },
+            ]}
+          >
+            {group.grade}
+          </Text>
+          <View style={styles.gradeSubRow}>
+            <StudentsEditor grade={group.grade} students={group.students} />
+            <Text
+              style={[
+                styles.gradeMeta,
+                {
+                  color: colors.mutedForeground,
+                  fontFamily: "NotoKufiArabic_400Regular",
+                },
+              ]}
+            >
+              · {group.totalBooks} {group.totalBooks === 1 ? "كتاب" : "كتب"}
+            </Text>
+          </View>
+        </View>
       </TouchableOpacity>
 
+      {/* Progress bar */}
       <View
         style={[
           styles.progressBar,
@@ -141,57 +223,52 @@ function GradeSection({
 
       {expanded && (
         <View style={styles.booksContainer}>
-          <View
-            style={[
-              styles.summaryRow,
-              {
-                backgroundColor: colors.muted,
-                borderColor: colors.glassBorder,
-              },
-            ]}
-          >
-            <SummaryCell
-              label="إجمالي الطلاب"
-              value={group.totalStudents}
-              color={colors.foreground}
-            />
+          {group.students > 0 && (
             <View
               style={[
-                styles.summaryDivider,
-                { backgroundColor: colors.border },
+                styles.summaryRow,
+                {
+                  backgroundColor: colors.muted,
+                  borderColor: colors.glassBorder,
+                },
               ]}
-            />
-            <SummaryCell
-              label="إجمالي الرصيد"
-              value={group.totalBalance}
-              color={colors.primary}
-            />
-            <View
-              style={[
-                styles.summaryDivider,
-                { backgroundColor: colors.border },
-              ]}
-            />
-            <SummaryCell
-              label="إجمالي النقص"
-              value={group.totalNeed}
-              color={group.totalNeed > 0 ? colors.accent : colors.primary}
-            />
-            <View
-              style={[
-                styles.summaryDivider,
-                { backgroundColor: colors.border },
-              ]}
-            />
-            <SummaryCell
-              label="المستلم سابقاً"
-              value={group.totalReceived}
-              color={colors.mutedForeground}
-            />
-          </View>
+            >
+              <SummaryCell
+                label="عدد الطلاب"
+                value={group.students}
+                color={colors.accent}
+              />
+              <View style={[styles.sumDiv, { backgroundColor: colors.border }]} />
+              <SummaryCell
+                label="إجمالي الرصيد"
+                value={group.totalBalance}
+                color={colors.primary}
+              />
+              <View style={[styles.sumDiv, { backgroundColor: colors.border }]} />
+              <SummaryCell
+                label="إجمالي النقص"
+                value={group.totalNeed}
+                color={group.totalNeed > 0 ? colors.accent : colors.primary}
+              />
+              <View style={[styles.sumDiv, { backgroundColor: colors.border }]} />
+              <SummaryCell
+                label="مستلم سابقاً"
+                value={group.totalReceived}
+                color={colors.mutedForeground}
+              />
+            </View>
+          )}
+
+          {group.books.length === 0 && (
+            <View style={[styles.emptyGrade, { borderColor: colors.glassBorder }]}>
+              <Text style={[styles.emptyGradeText, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
+                لم يُضف أي كتاب بعد
+              </Text>
+            </View>
+          )}
 
           {group.books.map((book) => (
-            <BookCard key={book.id} book={book} />
+            <BookCard key={book.id} book={book} gradeStudents={group.students} />
           ))}
 
           <TouchableOpacity
@@ -221,70 +298,28 @@ function GradeSection({
   );
 }
 
-function StatPill({
-  value,
-  label,
-  color,
-}: {
-  value: number;
-  label: string;
-  color: string;
-}) {
+function StatPill({ value, label, color }: { value: number; label: string; color: string }) {
   const colors = useColors();
   return (
     <View style={styles.pill}>
-      <Text
-        style={[
-          styles.pillValue,
-          { color, fontFamily: "SpaceGrotesk_600SemiBold" },
-        ]}
-      >
+      <Text style={[styles.pillValue, { color, fontFamily: "SpaceGrotesk_600SemiBold" }]}>
         {value}
       </Text>
-      <Text
-        style={[
-          styles.pillLabel,
-          {
-            color: colors.mutedForeground,
-            fontFamily: "NotoKufiArabic_400Regular",
-          },
-        ]}
-      >
+      <Text style={[styles.pillLabel, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
         {label}
       </Text>
     </View>
   );
 }
 
-function SummaryCell({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) {
+function SummaryCell({ label, value, color }: { label: string; value: number; color: string }) {
   const colors = useColors();
   return (
     <View style={styles.summaryCell}>
-      <Text
-        style={[
-          styles.summaryCellValue,
-          { color, fontFamily: "SpaceGrotesk_600SemiBold" },
-        ]}
-      >
+      <Text style={[styles.summaryCellValue, { color, fontFamily: "SpaceGrotesk_600SemiBold" }]}>
         {value}
       </Text>
-      <Text
-        style={[
-          styles.summaryCellLabel,
-          {
-            color: colors.mutedForeground,
-            fontFamily: "NotoKufiArabic_400Regular",
-          },
-        ]}
-      >
+      <Text style={[styles.summaryCellLabel, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
         {label}
       </Text>
     </View>
@@ -294,43 +329,34 @@ function SummaryCell({
 export default function DashboardScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { books, schoolInfo } = useBooks();
+  const { books, schoolInfo, gradeStudents } = useBooks();
 
   const [search, setSearch] = useState("");
   const [expandedGrades, setExpandedGrades] = useState<Set<string>>(new Set());
 
   const groups = useMemo<GradeGroup[]>(() => {
     const map: Record<string, BookEntry[]> = {};
-
-    // seed every fixed grade with an empty array so they always appear
     GRADES.forEach((g) => { map[g] = []; });
-
-    // fill with actual books, filtering by search if needed
     books.forEach((b) => {
       const q = search.trim().toLowerCase();
-      if (
-        q &&
-        !b.bookName.toLowerCase().includes(q) &&
-        !b.grade.toLowerCase().includes(q)
-      )
-        return;
+      if (q && !b.bookName.toLowerCase().includes(q) && !b.grade.toLowerCase().includes(q)) return;
       if (!map[b.grade]) map[b.grade] = [];
       map[b.grade].push(b);
     });
-
     return GRADES.map((grade) => {
       const gradeBooks = map[grade] ?? [];
+      const students = gradeStudents[grade] ?? 0;
       return {
         grade,
         books: [...gradeBooks].sort((a, b) => a.number - b.number),
         totalBooks: gradeBooks.length,
-        totalStudents: gradeBooks.reduce((s, b) => s + b.studentCount, 0),
+        students,
         totalBalance: gradeBooks.reduce((s, b) => s + b.schoolBalance, 0),
         totalNeed: gradeBooks.reduce((s, b) => s + b.actualNeed, 0),
         totalReceived: gradeBooks.reduce((s, b) => s + b.receivedLastYear, 0),
       };
     });
-  }, [books, search]);
+  }, [books, search, gradeStudents]);
 
   const toggleGrade = (grade: string) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -345,17 +371,14 @@ export default function DashboardScreen() {
 
   const expandAll = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpandedGrades(new Set(groups.map((g) => g.grade)));
+    setExpandedGrades(new Set(GRADES));
   };
-
   const collapseAll = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setExpandedGrades(new Set());
   };
 
-  const allExpanded =
-    groups.length > 0 && expandedGrades.size === groups.length;
-
+  const allExpanded = expandedGrades.size === GRADES.length;
   const topInset = Platform.OS === "web" ? 67 : insets.top;
 
   return (
@@ -371,119 +394,63 @@ export default function DashboardScreen() {
           styles.scroll,
           {
             paddingTop: topInset + 16,
-            paddingBottom:
-              Platform.OS === "web" ? 34 : insets.bottom + 100,
+            paddingBottom: Platform.OS === "web" ? 34 : insets.bottom + 100,
           },
         ]}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
+        {/* School header */}
         <View style={styles.headerRow}>
           <TouchableOpacity
             onPress={() => router.push("/(tabs)/settings")}
-            style={[
-              styles.iconBtn,
-              {
-                backgroundColor: colors.glass,
-                borderColor: colors.glassBorder,
-              },
-            ]}
+            style={[styles.iconBtn, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}
           >
             <Feather name="settings" size={20} color={colors.mutedForeground} />
           </TouchableOpacity>
           <View style={styles.headerText}>
-            <Text
-              style={[
-                styles.greeting,
-                { color: colors.mutedForeground },
-              ]}
-            >
+            <Text style={[styles.greeting, { color: colors.mutedForeground }]}>
               لوحة المتابعة
             </Text>
             <Text
-              style={[
-                styles.schoolName,
-                {
-                  color: colors.foreground,
-                  fontFamily: "NotoKufiArabic_700Bold",
-                },
-              ]}
-              numberOfLines={1}
+              style={[styles.schoolName, { color: colors.foreground, fontFamily: "NotoKufiArabic_700Bold" }]}
+              numberOfLines={2}
+              adjustsFontSizeToFit
             >
               {schoolInfo.schoolName || "مدرستي"}
             </Text>
           </View>
-          <View
-            style={[
-              styles.iconBtn,
-              {
-                backgroundColor: "rgba(29,184,142,0.15)",
-                borderColor: "rgba(29,184,142,0.3)",
-              },
-            ]}
-          >
+          <View style={[styles.iconBtn, { backgroundColor: "rgba(29,184,142,0.15)", borderColor: "rgba(29,184,142,0.3)" }]}>
             <Feather name="book-open" size={20} color={colors.primary} />
           </View>
         </View>
 
         {schoolInfo.directorate ? (
-          <Text
-            style={[
-              styles.directorate,
-              { color: colors.mutedForeground },
-            ]}
-          >
+          <Text style={[styles.directorate, { color: colors.mutedForeground }]}>
             {schoolInfo.directorate}
           </Text>
         ) : null}
 
+        {/* Section header */}
         <View style={styles.topBar}>
           <View style={styles.topBarLeft}>
-            {groups.length > 0 && (
-              <TouchableOpacity
-                onPress={allExpanded ? collapseAll : expandAll}
-                style={[
-                  styles.toggleAllBtn,
-                  {
-                    backgroundColor: colors.glass,
-                    borderColor: colors.glassBorder,
-                  },
-                ]}
-              >
-                <Feather
-                  name={allExpanded ? "minimize-2" : "maximize-2"}
-                  size={13}
-                  color={colors.mutedForeground}
-                />
-                <Text
-                  style={[
-                    styles.toggleAllText,
-                    {
-                      color: colors.mutedForeground,
-                      fontFamily: "NotoKufiArabic_400Regular",
-                    },
-                  ]}
-                >
-                  {allExpanded ? "طيّ الكل" : "فتح الكل"}
-                </Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              onPress={allExpanded ? collapseAll : expandAll}
+              style={[styles.toggleAllBtn, { backgroundColor: colors.glass, borderColor: colors.glassBorder }]}
+            >
+              <Feather name={allExpanded ? "minimize-2" : "maximize-2"} size={13} color={colors.mutedForeground} />
+              <Text style={[styles.toggleAllText, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
+                {allExpanded ? "طيّ الكل" : "فتح الكل"}
+              </Text>
+            </TouchableOpacity>
           </View>
-          <Text
-            style={[
-              styles.sectionTitle,
-              { color: colors.foreground, fontFamily: "NotoKufiArabic_700Bold" },
-            ]}
-          >
+          <Text style={[styles.sectionTitle, { color: colors.foreground, fontFamily: "NotoKufiArabic_700Bold" }]}>
             الصفوف الدراسية
           </Text>
         </View>
 
         <View style={{ marginBottom: 10 }}>
-          <SearchBar
-            value={search}
-            onChangeText={setSearch}
-            placeholder="بحث عن كتاب أو صف..."
-          />
+          <SearchBar value={search} onChangeText={setSearch} placeholder="بحث عن كتاب أو صف..." />
         </View>
 
         {groups.map((group) => (
@@ -501,138 +468,58 @@ export default function DashboardScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  gradientTop: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-  },
+  gradientTop: { position: "absolute", left: 0, right: 0, top: 0 },
   scroll: { paddingHorizontal: 20 },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
-  },
-  headerText: {
-    flex: 1,
-    alignItems: "center",
-    paddingHorizontal: 12,
-  },
-  greeting: {
-    fontSize: 12,
-    fontFamily: "NotoKufiArabic_400Regular",
-  },
-  schoolName: { fontSize: 18, textAlign: "center" },
-  directorate: {
-    fontSize: 12,
-    textAlign: "center",
-    marginBottom: 16,
-    fontFamily: "NotoKufiArabic_400Regular",
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  topBarLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+  headerRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 },
+  headerText: { flex: 1, alignItems: "center", paddingHorizontal: 12 },
+  greeting: { fontSize: 12, fontFamily: "NotoKufiArabic_400Regular" },
+  schoolName: { fontSize: 15, textAlign: "center" },
+  directorate: { fontSize: 12, textAlign: "center", marginBottom: 16, fontFamily: "NotoKufiArabic_400Regular" },
+  iconBtn: { width: 40, height: 40, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12, marginTop: 8 },
+  topBarLeft: { flexDirection: "row", alignItems: "center" },
   sectionTitle: { fontSize: 17 },
-  toggleAllBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
+  toggleAllBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, borderWidth: 1 },
   toggleAllText: { fontSize: 12 },
+
   gradeSection: { marginBottom: 14 },
-  gradeHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
+  gradeHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", padding: 14, borderRadius: 14, borderWidth: 1 },
+  gradeLeft: { flexDirection: "row", alignItems: "center", gap: 6 },
+  gradeRight: { flex: 1, alignItems: "flex-end", paddingRight: 8 },
+  gradeName: { fontSize: 15 },
+  gradeSubRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  gradeMeta: { fontSize: 11 },
+
+  studentsBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
+  studentsCount: { fontSize: 13 },
+  studentsLabel: { fontSize: 11 },
+  studentsInput: {
+    fontSize: 14,
+    borderBottomWidth: 1,
+    minWidth: 40,
+    textAlign: "center",
+    paddingVertical: 0,
+    paddingHorizontal: 4,
   },
-  gradeHeaderRight: { flex: 1, alignItems: "flex-end" },
-  gradeName: { fontSize: 16 },
-  gradeMeta: { fontSize: 12, marginTop: 2 },
-  gradeStats: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginRight: 12,
-  },
-  pill: { alignItems: "center", minWidth: 38 },
-  pillValue: { fontSize: 16 },
+
+  pill: { alignItems: "center", minWidth: 36 },
+  pillValue: { fontSize: 15 },
   pillLabel: { fontSize: 9, marginTop: 1 },
-  progressBar: {
-    height: 6,
-    borderRadius: 3,
-    marginTop: 6,
-    marginHorizontal: 2,
-    borderWidth: 1,
-    overflow: "hidden",
-    flexDirection: "row",
-    alignItems: "center",
-    position: "relative",
-  },
-  progressFill: {
-    position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: 3,
-  },
-  progressLabel: {
-    position: "absolute",
-    right: 6,
-    fontSize: 8,
-    fontFamily: "SpaceGrotesk_400Regular",
-  },
-  booksContainer: {
-    marginTop: 8,
-    paddingLeft: 12,
-    borderLeftWidth: 2,
-    borderLeftColor: "rgba(29,184,142,0.3)",
-  },
-  summaryRow: {
-    flexDirection: "row",
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 10,
-    overflow: "hidden",
-  },
-  summaryDivider: { width: 1 },
+
+  progressBar: { height: 6, borderRadius: 3, marginTop: 6, marginHorizontal: 2, borderWidth: 1, overflow: "hidden", position: "relative" },
+  progressFill: { position: "absolute", left: 0, top: 0, bottom: 0, borderRadius: 3 },
+  progressLabel: { position: "absolute", right: 6, top: 0, bottom: 0, fontSize: 8, textAlignVertical: "center", fontFamily: "SpaceGrotesk_400Regular" },
+
+  booksContainer: { marginTop: 8, paddingLeft: 12, borderLeftWidth: 2, borderLeftColor: "rgba(29,184,142,0.3)" },
+  summaryRow: { flexDirection: "row", borderRadius: 12, borderWidth: 1, marginBottom: 10, overflow: "hidden" },
+  sumDiv: { width: 1 },
   summaryCell: { flex: 1, alignItems: "center", paddingVertical: 10 },
-  summaryCellValue: { fontSize: 18 },
+  summaryCellValue: { fontSize: 17 },
   summaryCellLabel: { fontSize: 9, marginTop: 2, textAlign: "center" },
-  addBookBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    marginBottom: 4,
-    marginTop: 4,
-  },
+
+  emptyGrade: { borderWidth: 1, borderStyle: "dashed", borderRadius: 10, padding: 14, alignItems: "center", marginBottom: 8 },
+  emptyGradeText: { fontSize: 13 },
+
+  addBookBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderStyle: "dashed", marginBottom: 4, marginTop: 4 },
   addBookLabel: { fontSize: 13 },
 });

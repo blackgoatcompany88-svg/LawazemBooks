@@ -13,7 +13,6 @@ export interface BookEntry {
   bookName: string;
   part: string;
   grade: string;
-  studentCount: number;
   receivedLastYear: number;
   schoolBalance: number;
   actualNeed: number;
@@ -29,6 +28,7 @@ export interface SchoolInfo {
 interface BooksContextType {
   books: BookEntry[];
   schoolInfo: SchoolInfo;
+  gradeStudents: Record<string, number>;
   addBook: (book: Omit<BookEntry, "id" | "actualNeed" | "createdAt">) => void;
   updateBook: (
     id: string,
@@ -36,13 +36,15 @@ interface BooksContextType {
   ) => void;
   deleteBook: (id: string) => void;
   updateSchoolInfo: (info: SchoolInfo) => void;
+  updateGradeStudents: (grade: string, count: number) => void;
   getBook: (id: string) => BookEntry | undefined;
 }
 
 const BooksContext = createContext<BooksContextType | null>(null);
 
-const BOOKS_KEY = "@school_books_v1";
+const BOOKS_KEY = "@school_books_v2";
 const SCHOOL_KEY = "@school_info_v1";
+const GRADE_STUDENTS_KEY = "@grade_students_v1";
 
 const SAMPLE_GRADES = [
   "الأول الأساسي",
@@ -55,8 +57,8 @@ const SAMPLE_GRADES = [
   "الثامن الأساسي",
 ];
 
-function calcNeed(studentCount: number, schoolBalance: number): number {
-  const need = studentCount - schoolBalance;
+function calcNeed(students: number, schoolBalance: number): number {
+  const need = students - schoolBalance;
   return need > 0 ? need : 0;
 }
 
@@ -66,6 +68,7 @@ function generateId(): string {
 
 export function BooksProvider({ children }: { children: React.ReactNode }) {
   const [books, setBooks] = useState<BookEntry[]>([]);
+  const [gradeStudents, setGradeStudents] = useState<Record<string, number>>({});
   const [schoolInfo, setSchoolInfo] = useState<SchoolInfo>({
     schoolName: "عائشة بنت أبي بكر الأساسية المختلطة",
     directorate: "",
@@ -74,12 +77,14 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const [booksData, schoolData] = await Promise.all([
+      const [booksData, schoolData, gradeData] = await Promise.all([
         AsyncStorage.getItem(BOOKS_KEY),
         AsyncStorage.getItem(SCHOOL_KEY),
+        AsyncStorage.getItem(GRADE_STUDENTS_KEY),
       ]);
       if (booksData) setBooks(JSON.parse(booksData));
       if (schoolData) setSchoolInfo(JSON.parse(schoolData));
+      if (gradeData) setGradeStudents(JSON.parse(gradeData));
     })();
   }, []);
 
@@ -89,32 +94,37 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const addBook = useCallback(
-    (data: Omit<BookEntry, "id" | "actualNeed" | "createdAt">) => {
+    (
+      data: Omit<BookEntry, "id" | "actualNeed" | "createdAt">,
+      studentsOverride?: number
+    ) => {
+      const students = studentsOverride ?? gradeStudents[data.grade] ?? 0;
       const entry: BookEntry = {
         ...data,
         id: generateId(),
-        actualNeed: calcNeed(data.studentCount, data.schoolBalance),
+        actualNeed: calcNeed(students, data.schoolBalance),
         createdAt: new Date().toISOString(),
       };
       saveBooks([...books, entry]);
     },
-    [books, saveBooks]
+    [books, gradeStudents, saveBooks]
   );
 
   const updateBook = useCallback(
     (id: string, data: Omit<BookEntry, "id" | "actualNeed" | "createdAt">) => {
+      const students = gradeStudents[data.grade] ?? 0;
       const updated = books.map((b) =>
         b.id === id
           ? {
               ...b,
               ...data,
-              actualNeed: calcNeed(data.studentCount, data.schoolBalance),
+              actualNeed: calcNeed(students, data.schoolBalance),
             }
           : b
       );
       saveBooks(updated);
     },
-    [books, saveBooks]
+    [books, gradeStudents, saveBooks]
   );
 
   const deleteBook = useCallback(
@@ -129,6 +139,24 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
     await AsyncStorage.setItem(SCHOOL_KEY, JSON.stringify(info));
   }, []);
 
+  const updateGradeStudents = useCallback(
+    async (grade: string, count: number) => {
+      const updated = { ...gradeStudents, [grade]: count };
+      setGradeStudents(updated);
+      await AsyncStorage.setItem(GRADE_STUDENTS_KEY, JSON.stringify(updated));
+
+      // Recalculate actualNeed for all books in this grade
+      const updatedBooks = books.map((b) =>
+        b.grade === grade
+          ? { ...b, actualNeed: calcNeed(count, b.schoolBalance) }
+          : b
+      );
+      await AsyncStorage.setItem(BOOKS_KEY, JSON.stringify(updatedBooks));
+      setBooks(updatedBooks);
+    },
+    [gradeStudents, books]
+  );
+
   const getBook = useCallback(
     (id: string) => books.find((b) => b.id === id),
     [books]
@@ -139,10 +167,12 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
       value={{
         books,
         schoolInfo,
+        gradeStudents,
         addBook,
         updateBook,
         deleteBook,
         updateSchoolInfo,
+        updateGradeStudents,
         getBook,
       }}
     >

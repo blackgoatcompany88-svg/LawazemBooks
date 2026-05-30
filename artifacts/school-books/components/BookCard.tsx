@@ -1,13 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import React from "react";
-import {
-  Alert,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { GlassCard } from "@/components/GlassCard";
 import { BookEntry, useBooks } from "@/context/BooksContext";
@@ -16,9 +10,10 @@ import { router } from "expo-router";
 
 interface BookCardProps {
   book: BookEntry;
+  gradeStudents?: number;
 }
 
-export function BookCard({ book }: BookCardProps) {
+export function BookCard({ book, gradeStudents = 0 }: BookCardProps) {
   const colors = useColors();
   const { deleteBook } = useBooks();
 
@@ -26,26 +21,20 @@ export function BookCard({ book }: BookCardProps) {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert("حذف الكتاب", `هل تريد حذف "${book.bookName}"؟`, [
       { text: "إلغاء", style: "cancel" },
-      {
-        text: "حذف",
-        style: "destructive",
-        onPress: () => deleteBook(book.id),
-      },
+      { text: "حذف", style: "destructive", onPress: () => deleteBook(book.id) },
     ]);
   };
 
-  const handleEdit = () => {
-    router.push(`/book/${book.id}`);
-  };
+  const handleEdit = () => router.push(`/book/${book.id}`);
 
-  const needColor =
-    book.actualNeed > 0 ? colors.warning : colors.primary;
+  const needColor = book.actualNeed > 0 ? colors.warning : colors.primary;
 
   return (
-    <TouchableOpacity onPress={handleEdit} activeOpacity={0.85}>
+    <TouchableOpacity onPress={handleEdit} activeOpacity={0.85} style={styles.wrapper}>
       <GlassCard style={styles.card}>
+        {/* Header */}
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
+          <View style={styles.actions}>
             <TouchableOpacity onPress={handleDelete} hitSlop={8}>
               <Feather name="trash-2" size={16} color={colors.destructive} />
             </TouchableOpacity>
@@ -53,8 +42,8 @@ export function BookCard({ book }: BookCardProps) {
               <Feather name="edit-2" size={16} color={colors.mutedForeground} />
             </TouchableOpacity>
           </View>
-          <View style={styles.headerRight}>
-            <Text style={[styles.number, { color: colors.mutedForeground }]}>
+          <View style={styles.titleSide}>
+            <Text style={[styles.number, { color: colors.mutedForeground, fontFamily: "SpaceGrotesk_400Regular" }]}>
               #{book.number}
             </Text>
             <Text
@@ -64,7 +53,7 @@ export function BookCard({ book }: BookCardProps) {
               {book.bookName}
             </Text>
             {book.part ? (
-              <Text style={[styles.part, { color: colors.mutedForeground }]}>
+              <Text style={[styles.part, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
                 الجزء {book.part}
               </Text>
             ) : null}
@@ -73,47 +62,43 @@ export function BookCard({ book }: BookCardProps) {
 
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-        <View style={styles.gradeRow}>
-          <View style={[styles.gradeBadge, { backgroundColor: "rgba(29,184,142,0.15)", borderColor: "rgba(29,184,142,0.3)" }]}>
-            <Text style={[styles.gradeText, { color: colors.primary }]}>
-              {book.grade}
-            </Text>
-          </View>
-          <View style={[styles.needBadge, { backgroundColor: book.actualNeed > 0 ? "rgba(240,160,48,0.15)" : "rgba(29,184,142,0.10)", borderColor: book.actualNeed > 0 ? "rgba(240,160,48,0.3)" : "rgba(29,184,142,0.2)" }]}>
-            <Text style={[styles.needValue, { color: needColor, fontFamily: "SpaceGrotesk_600SemiBold" }]}>
-              {book.actualNeed}
-            </Text>
-            <Text style={[styles.needLabel, { color: needColor }]}>الحاجة</Text>
-          </View>
+        {/* Stats row */}
+        <View style={styles.statsRow}>
+          <DataItem label="الحاجة" value={book.actualNeed} color={needColor} />
+          {gradeStudents > 0 && (
+            <DataItem label="الطلاب" value={gradeStudents} color={colors.accent} />
+          )}
+          <DataItem label="الرصيد" value={book.schoolBalance} color={colors.primary} />
+          <DataItem label="مستلم" value={book.receivedLastYear} color={colors.mutedForeground} />
         </View>
 
-        <View style={styles.statsRow}>
-          <DataItem label="الحاجة الفعلية" value={book.actualNeed} color={needColor} />
-          <DataItem label="عدد الطلاب" value={book.studentCount} color={colors.foreground} />
-          <DataItem label="رصيد المدرسة" value={book.schoolBalance} color={colors.foreground} />
-          <DataItem label="المستلم السابق" value={book.receivedLastYear} color={colors.mutedForeground} />
-        </View>
+        {/* Need indicator strip */}
+        {gradeStudents > 0 && (
+          <View style={[styles.needStrip, { backgroundColor: colors.muted }]}>
+            <View
+              style={[
+                styles.needFill,
+                {
+                  backgroundColor: needColor,
+                  width: `${Math.min(100, Math.round((book.schoolBalance / gradeStudents) * 100))}%` as any,
+                },
+              ]}
+            />
+          </View>
+        )}
       </GlassCard>
     </TouchableOpacity>
   );
 }
 
-function DataItem({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) {
+function DataItem({ label, value, color }: { label: string; value: number; color: string }) {
   const colors = useColors();
   return (
     <View style={styles.dataItem}>
       <Text style={[styles.dataValue, { color, fontFamily: "SpaceGrotesk_600SemiBold" }]}>
         {value}
       </Text>
-      <Text style={[styles.dataLabel, { color: colors.mutedForeground }]}>
+      <Text style={[styles.dataLabel, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
         {label}
       </Text>
     </View>
@@ -121,92 +106,19 @@ function DataItem({
 }
 
 const styles = StyleSheet.create({
-  card: {
-    padding: 16,
-    marginBottom: 12,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    marginBottom: 12,
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingTop: 4,
-  },
-  headerRight: {
-    flex: 1,
-    alignItems: "flex-end",
-    paddingLeft: 8,
-  },
-  number: {
-    fontSize: 11,
-    fontFamily: "SpaceGrotesk_400Regular",
-    marginBottom: 2,
-  },
-  bookName: {
-    fontSize: 16,
-    textAlign: "right",
-  },
-  part: {
-    fontSize: 12,
-    marginTop: 2,
-    textAlign: "right",
-    fontFamily: "NotoKufiArabic_400Regular",
-  },
-  divider: {
-    height: 1,
-    marginBottom: 12,
-  },
-  gradeRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  gradeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  gradeText: {
-    fontSize: 12,
-    fontFamily: "NotoKufiArabic_400Regular",
-  },
-  needBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 4,
-  },
-  needValue: {
-    fontSize: 14,
-  },
-  needLabel: {
-    fontSize: 11,
-    fontFamily: "NotoKufiArabic_400Regular",
-  },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  dataItem: {
-    alignItems: "center",
-    flex: 1,
-  },
-  dataValue: {
-    fontSize: 16,
-  },
-  dataLabel: {
-    fontSize: 9,
-    textAlign: "center",
-    marginTop: 2,
-    fontFamily: "NotoKufiArabic_400Regular",
-  },
+  wrapper: { marginBottom: 10 },
+  card: { padding: 14 },
+  header: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 },
+  actions: { flexDirection: "row", alignItems: "center", paddingTop: 4 },
+  titleSide: { flex: 1, alignItems: "flex-end", paddingLeft: 8 },
+  number: { fontSize: 11, marginBottom: 2 },
+  bookName: { fontSize: 15, textAlign: "right" },
+  part: { fontSize: 12, marginTop: 2, textAlign: "right" },
+  divider: { height: 1, marginBottom: 10 },
+  statsRow: { flexDirection: "row", justifyContent: "space-around", marginBottom: 10 },
+  dataItem: { alignItems: "center" },
+  dataValue: { fontSize: 18 },
+  dataLabel: { fontSize: 10, marginTop: 2 },
+  needStrip: { height: 4, borderRadius: 2, overflow: "hidden", marginTop: 2 },
+  needFill: { height: "100%", borderRadius: 2 },
 });
