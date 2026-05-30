@@ -410,7 +410,7 @@ export default function DashboardScreen() {
           </TouchableOpacity>
           <View style={styles.headerText}>
             <Text style={[styles.greeting, { color: colors.mutedForeground }]}>
-              لوحة المتابعة
+              لوحة اللوازم
             </Text>
             <Text
               style={[styles.schoolName, { color: colors.foreground, fontFamily: "NotoKufiArabic_700Bold" }]}
@@ -420,8 +420,8 @@ export default function DashboardScreen() {
               {schoolInfo.schoolName || "مدرستي"}
             </Text>
           </View>
-          <View style={[styles.iconBtn, { backgroundColor: "rgba(29,184,142,0.15)", borderColor: "rgba(29,184,142,0.3)" }]}>
-            <Feather name="book-open" size={20} color={colors.primary} />
+          <View style={[styles.logoCircle, { backgroundColor: colors.primary }]}>
+            <Text style={[styles.logoText, { fontFamily: "NotoKufiArabic_700Bold" }]}>اللوازم</Text>
           </View>
         </View>
 
@@ -522,4 +522,6 @@ const styles = StyleSheet.create({
 
   addBookBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderStyle: "dashed", marginBottom: 4, marginTop: 4 },
   addBookLabel: { fontSize: 13 },
+  logoCircle: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  logoText: { color: "#fff", fontSize: 11 },
 });

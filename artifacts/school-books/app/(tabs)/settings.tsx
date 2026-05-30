@@ -105,13 +105,18 @@ export default function SettingsScreen() {
           icon="home"
         />
         <View style={[styles.sep, { backgroundColor: colors.border }]} />
-        <FieldInput
-          label="مديرية التربية"
-          value={form.directorate}
-          onChangeText={(t) => setForm({ ...form, directorate: t })}
-          placeholder="أدخل اسم المديرية"
-          icon="map-pin"
-        />
+        {/* المديرية ثابتة غير قابلة للتعديل */}
+        <View style={styles.field}>
+          <Text style={[styles.fieldInput, { color: colors.foreground, fontFamily: "NotoKufiArabic_400Regular" }]}>
+            مديرية تربية وتعليم محافظة العقبة
+          </Text>
+          <View style={styles.fieldLabelRow}>
+            <Feather name="map-pin" size={14} color={colors.mutedForeground} />
+            <Text style={[styles.fieldLabel, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
+              مديرية التربية
+            </Text>
+          </View>
+        </View>
         <View style={[styles.sep, { backgroundColor: colors.border }]} />
         <FieldInput
           label="رقم الهاتف"

@@ -71,7 +71,7 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
   const [gradeStudents, setGradeStudents] = useState<Record<string, number>>({});
   const [schoolInfo, setSchoolInfo] = useState<SchoolInfo>({
     schoolName: "عائشة بنت أبي بكر الأساسية المختلطة",
-    directorate: "",
+    directorate: "مديرية تربية وتعليم محافظة العقبة",
     phone: "",
   });
 
