@@ -20,6 +20,10 @@ function NativeTabLayout() {
         <Icon sf={{ default: "chart.pie", selected: "chart.pie.fill" }} />
         <Label>إحصائية</Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="archive">
+        <Icon sf={{ default: "archivebox", selected: "archivebox.fill" }} />
+        <Label>الأرشيف</Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} />
         <Label>الإعدادات</Label>
@@ -85,6 +89,18 @@ function ClassicTabLayout() {
               <SymbolView name="chart.pie.fill" tintColor={color} size={22} />
             ) : (
               <Feather name="pie-chart" size={22} color={color} />
+            ),
+        }}
+      />
+      <Tabs.Screen
+        name="archive"
+        options={{
+          title: "الأرشيف",
+          tabBarIcon: ({ color }) =>
+            isIOS ? (
+              <SymbolView name="archivebox.fill" tintColor={color} size={22} />
+            ) : (
+              <Feather name="archive" size={22} color={color} />
             ),
         }}
       />
