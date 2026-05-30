@@ -4,20 +4,281 @@ import { router } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
   FlatList,
+  LayoutAnimation,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
+  UIManager,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BookCard } from "@/components/BookCard";
 import { EmptyState } from "@/components/EmptyState";
+import { GlassCard } from "@/components/GlassCard";
 import { SearchBar } from "@/components/SearchBar";
-import { GRADES, useBooks } from "@/context/BooksContext";
+import { BookEntry, useBooks } from "@/context/BooksContext";
 import { useColors } from "@/hooks/useColors";
+
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+interface GradeGroup {
+  grade: string;
+  books: BookEntry[];
+  totalBooks: number;
+  totalStudents: number;
+  totalBalance: number;
+  totalNeed: number;
+  totalReceived: number;
+}
+
+function GradeSection({
+  group,
+  expanded,
+  onToggle,
+}: {
+  group: GradeGroup;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const colors = useColors();
+  const coverageRatio =
+    group.totalStudents > 0
+      ? Math.min(1, group.totalBalance / group.totalStudents)
+      : 1;
+  const barColor =
+    coverageRatio >= 1
+      ? colors.primary
+      : coverageRatio >= 0.5
+        ? colors.accent
+        : colors.error;
+
+  return (
+    <View style={styles.gradeSection}>
+      <TouchableOpacity
+        onPress={onToggle}
+        activeOpacity={0.8}
+        style={[
+          styles.gradeHeader,
+          {
+            backgroundColor: expanded ? colors.glassStrong : colors.glass,
+            borderColor: expanded ? "rgba(29,184,142,0.35)" : colors.glassBorder,
+          },
+        ]}
+      >
+        <View style={styles.gradeHeaderRight}>
+          <Text
+            style={[
+              styles.gradeName,
+              {
+                color: colors.foreground,
+                fontFamily: "NotoKufiArabic_700Bold",
+              },
+            ]}
+          >
+            {group.grade}
+          </Text>
+          <Text
+            style={[
+              styles.gradeMeta,
+              {
+                color: colors.mutedForeground,
+                fontFamily: "NotoKufiArabic_400Regular",
+              },
+            ]}
+          >
+            {group.totalBooks} {group.totalBooks === 1 ? "كتاب" : "كتب"}
+          </Text>
+        </View>
+
+        <View style={styles.gradeStats}>
+          <StatPill
+            value={group.totalBalance}
+            label="متوفر"
+            color={colors.primary}
+          />
+          <StatPill
+            value={group.totalNeed}
+            label="نقص"
+            color={group.totalNeed > 0 ? colors.accent : colors.mutedForeground}
+          />
+          <Feather
+            name={expanded ? "chevron-up" : "chevron-down"}
+            size={18}
+            color={colors.mutedForeground}
+            style={{ marginLeft: 6 }}
+          />
+        </View>
+      </TouchableOpacity>
+
+      <View
+        style={[
+          styles.progressBar,
+          { backgroundColor: colors.glass, borderColor: colors.glassBorder },
+        ]}
+      >
+        <View
+          style={[
+            styles.progressFill,
+            {
+              backgroundColor: barColor,
+              width: `${Math.round(coverageRatio * 100)}%` as any,
+            },
+          ]}
+        />
+        <Text
+          style={[
+            styles.progressLabel,
+            { color: colors.mutedForeground },
+          ]}
+        >
+          {`${Math.round(coverageRatio * 100)}% تغطية`}
+        </Text>
+      </View>
+
+      {expanded && (
+        <View style={styles.booksContainer}>
+          <View
+            style={[
+              styles.summaryRow,
+              { backgroundColor: colors.muted, borderColor: colors.glassBorder },
+            ]}
+          >
+            <SummaryCell
+              label="إجمالي الطلاب"
+              value={group.totalStudents}
+              color={colors.foreground}
+            />
+            <View
+              style={[styles.summaryDivider, { backgroundColor: colors.border }]}
+            />
+            <SummaryCell
+              label="إجمالي الرصيد"
+              value={group.totalBalance}
+              color={colors.primary}
+            />
+            <View
+              style={[styles.summaryDivider, { backgroundColor: colors.border }]}
+            />
+            <SummaryCell
+              label="إجمالي النقص"
+              value={group.totalNeed}
+              color={group.totalNeed > 0 ? colors.accent : colors.primary}
+            />
+            <View
+              style={[styles.summaryDivider, { backgroundColor: colors.border }]}
+            />
+            <SummaryCell
+              label="المستلم سابقاً"
+              value={group.totalReceived}
+              color={colors.mutedForeground}
+            />
+          </View>
+
+          {group.books.map((book) => (
+            <BookCard key={book.id} book={book} />
+          ))}
+
+          <TouchableOpacity
+            onPress={() => router.push("/book/new")}
+            style={[
+              styles.addBookBtn,
+              {
+                borderColor: "rgba(29,184,142,0.4)",
+                backgroundColor: "rgba(29,184,142,0.07)",
+              },
+            ]}
+            activeOpacity={0.8}
+          >
+            <Feather name="plus" size={16} color="#1DB88E" />
+            <Text
+              style={[
+                styles.addBookLabel,
+                {
+                  color: "#1DB88E",
+                  fontFamily: "NotoKufiArabic_400Regular",
+                },
+              ]}
+            >
+              إضافة كتاب لهذا الصف
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function StatPill({
+  value,
+  label,
+  color,
+}: {
+  value: number;
+  label: string;
+  color: string;
+}) {
+  const colors = useColors();
+  return (
+    <View style={styles.pill}>
+      <Text
+        style={[
+          styles.pillValue,
+          { color, fontFamily: "SpaceGrotesk_600SemiBold" },
+        ]}
+      >
+        {value}
+      </Text>
+      <Text
+        style={[
+          styles.pillLabel,
+          { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" },
+        ]}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function SummaryCell({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: string;
+}) {
+  const colors = useColors();
+  return (
+    <View style={styles.summaryCell}>
+      <Text
+        style={[
+          styles.summaryCellValue,
+          { color, fontFamily: "SpaceGrotesk_600SemiBold" },
+        ]}
+      >
+        {value}
+      </Text>
+      <Text
+        style={[
+          styles.summaryCellLabel,
+          { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" },
+        ]}
+      >
+        {label}
+      </Text>
+    </View>
+  );
+}
 
 export default function BooksScreen() {
   const colors = useColors();
@@ -25,30 +286,60 @@ export default function BooksScreen() {
   const { books } = useBooks();
 
   const [search, setSearch] = useState("");
-  const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
+  const [expandedGrades, setExpandedGrades] = useState<Set<string>>(new Set());
 
-  const filtered = useMemo(() => {
-    let result = books;
-    if (selectedGrade) {
-      result = result.filter((b) => b.grade === selectedGrade);
-    }
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      result = result.filter(
-        (b) =>
-          b.bookName.toLowerCase().includes(q) ||
-          b.grade.toLowerCase().includes(q)
-      );
-    }
-    return result.sort((a, b) => a.number - b.number);
-  }, [books, search, selectedGrade]);
+  const groups = useMemo<GradeGroup[]>(() => {
+    const map: Record<string, BookEntry[]> = {};
 
-  const usedGrades = useMemo(
-    () => [...new Set(books.map((b) => b.grade))].sort(),
-    [books]
-  );
+    const filtered = search.trim()
+      ? books.filter(
+          (b) =>
+            b.bookName.toLowerCase().includes(search.toLowerCase()) ||
+            b.grade.toLowerCase().includes(search.toLowerCase())
+        )
+      : books;
+
+    filtered.forEach((b) => {
+      if (!map[b.grade]) map[b.grade] = [];
+      map[b.grade].push(b);
+    });
+
+    return Object.entries(map)
+      .sort(([a], [b]) => a.localeCompare(b, "ar"))
+      .map(([grade, gradeBooks]) => ({
+        grade,
+        books: [...gradeBooks].sort((a, b) => a.number - b.number),
+        totalBooks: gradeBooks.length,
+        totalStudents: gradeBooks.reduce((s, b) => s + b.studentCount, 0),
+        totalBalance: gradeBooks.reduce((s, b) => s + b.schoolBalance, 0),
+        totalNeed: gradeBooks.reduce((s, b) => s + b.actualNeed, 0),
+        totalReceived: gradeBooks.reduce((s, b) => s + b.receivedLastYear, 0),
+      }));
+  }, [books, search]);
+
+  const toggleGrade = (grade: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setExpandedGrades((prev) => {
+      const next = new Set(prev);
+      if (next.has(grade)) next.delete(grade);
+      else next.add(grade);
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedGrades(new Set(groups.map((g) => g.grade)));
+  };
+
+  const collapseAll = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setExpandedGrades(new Set());
+  };
 
   const topInset = Platform.OS === "web" ? 67 : insets.top;
+  const allExpanded = groups.length > 0 && expandedGrades.size === groups.length;
 
   const handleAdd = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -67,97 +358,75 @@ export default function BooksScreen() {
           },
         ]}
       >
+        <View style={styles.headerTop}>
+          <Text
+            style={[
+              styles.title,
+              { color: colors.foreground, fontFamily: "NotoKufiArabic_700Bold" },
+            ]}
+          >
+            الكتب المدرسية
+          </Text>
+          <View style={styles.headerActions}>
+            {groups.length > 0 && (
+              <TouchableOpacity
+                onPress={allExpanded ? collapseAll : expandAll}
+                style={[
+                  styles.toggleAllBtn,
+                  {
+                    backgroundColor: colors.glass,
+                    borderColor: colors.glassBorder,
+                  },
+                ]}
+              >
+                <Feather
+                  name={allExpanded ? "minimize-2" : "maximize-2"}
+                  size={14}
+                  color={colors.mutedForeground}
+                />
+                <Text
+                  style={[
+                    styles.toggleAllText,
+                    {
+                      color: colors.mutedForeground,
+                      fontFamily: "NotoKufiArabic_400Regular",
+                    },
+                  ]}
+                >
+                  {allExpanded ? "طيّ الكل" : "فتح الكل"}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              onPress={handleAdd}
+              style={[
+                styles.addBtn,
+                { backgroundColor: colors.primary },
+              ]}
+            >
+              <Feather name="plus" size={18} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <Text
-          style={[styles.title, { color: colors.foreground, fontFamily: "NotoKufiArabic_700Bold" }]}
+          style={[
+            styles.subtitle,
+            { color: colors.mutedForeground, fontFamily: "SpaceGrotesk_400Regular" },
+          ]}
         >
-          الكتب المدرسية
+          {groups.length} صف · {books.length} كتاب
         </Text>
-        <Text style={[styles.count, { color: colors.mutedForeground, fontFamily: "SpaceGrotesk_400Regular" }]}>
-          {books.length} كتاب
-        </Text>
-        <View style={{ height: 12 }} />
+
+        <View style={{ height: 10 }} />
         <SearchBar
           value={search}
           onChangeText={setSearch}
           placeholder="بحث عن كتاب أو صف..."
         />
-        {usedGrades.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.filterScroll}
-            contentContainerStyle={styles.filterContent}
-          >
-            <TouchableOpacity
-              onPress={() => setSelectedGrade(null)}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor:
-                    selectedGrade === null
-                      ? colors.primary
-                      : colors.glass,
-                  borderColor:
-                    selectedGrade === null
-                      ? colors.primary
-                      : colors.glassBorder,
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  {
-                    color:
-                      selectedGrade === null
-                        ? "#fff"
-                        : colors.mutedForeground,
-                  },
-                ]}
-              >
-                الكل
-              </Text>
-            </TouchableOpacity>
-            {usedGrades.map((g) => (
-              <TouchableOpacity
-                key={g}
-                onPress={() =>
-                  setSelectedGrade((prev) => (prev === g ? null : g))
-                }
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor:
-                      selectedGrade === g ? colors.primary : colors.glass,
-                    borderColor:
-                      selectedGrade === g
-                        ? colors.primary
-                        : colors.glassBorder,
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.chipText,
-                    {
-                      color:
-                        selectedGrade === g ? "#fff" : colors.mutedForeground,
-                      fontFamily: "NotoKufiArabic_400Regular",
-                    },
-                  ]}
-                >
-                  {g}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        )}
       </View>
 
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <BookCard book={item} />}
+      <ScrollView
         contentContainerStyle={[
           styles.list,
           {
@@ -166,35 +435,30 @@ export default function BooksScreen() {
           },
         ]}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
+      >
+        {groups.length === 0 ? (
           <EmptyState
             icon="book"
-            title={search || selectedGrade ? "لا توجد نتائج" : "لا توجد كتب بعد"}
+            title={search ? "لا توجد نتائج" : "لا توجد كتب بعد"}
             description={
-              search || selectedGrade
+              search
                 ? "جرّب البحث بكلمة أخرى"
-                : "اضغط الزر + لإضافة كتاب جديد"
+                : "اضغط زر + لإضافة كتاب جديد"
             }
-            actionLabel={!search && !selectedGrade ? "إضافة كتاب" : undefined}
-            onAction={!search && !selectedGrade ? handleAdd : undefined}
+            actionLabel={!search ? "إضافة كتاب" : undefined}
+            onAction={!search ? handleAdd : undefined}
           />
-        }
-        scrollEnabled={!!filtered.length}
-      />
-
-      <TouchableOpacity
-        onPress={handleAdd}
-        style={[
-          styles.fab,
-          {
-            backgroundColor: colors.primary,
-            bottom: Platform.OS === "web" ? 34 : insets.bottom + 80,
-          },
-        ]}
-        activeOpacity={0.85}
-      >
-        <Feather name="plus" size={26} color="#fff" />
-      </TouchableOpacity>
+        ) : (
+          groups.map((group) => (
+            <GradeSection
+              key={group.grade}
+              group={group}
+              expanded={expandedGrades.has(group.grade)}
+              onToggle={() => toggleGrade(group.grade)}
+            />
+          ))
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -206,48 +470,125 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     borderBottomWidth: 1,
   },
-  title: {
-    fontSize: 24,
-    textAlign: "right",
+  headerTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
   },
-  count: {
-    fontSize: 13,
-    textAlign: "right",
-    marginTop: 2,
-  },
-  filterScroll: {
-    marginTop: 10,
-  },
-  filterContent: {
-    paddingRight: 4,
+  title: { fontSize: 24 },
+  subtitle: { fontSize: 13, textAlign: "right" },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
-    flexDirection: "row-reverse",
   },
-  chip: {
-    paddingHorizontal: 14,
+  toggleAllBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 10,
     borderWidth: 1,
   },
-  chipText: {
-    fontSize: 12,
-  },
-  list: {
-    padding: 20,
-    paddingTop: 16,
-  },
-  fab: {
-    position: "absolute",
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  toggleAllText: { fontSize: 12 },
+  addBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#1DB88E",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
   },
+  list: {
+    padding: 16,
+    paddingTop: 14,
+  },
+  gradeSection: {
+    marginBottom: 14,
+  },
+  gradeHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  gradeHeaderRight: {
+    flex: 1,
+    alignItems: "flex-end",
+  },
+  gradeName: { fontSize: 16 },
+  gradeMeta: { fontSize: 12, marginTop: 2 },
+  gradeStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginRight: 12,
+  },
+  pill: {
+    alignItems: "center",
+    minWidth: 38,
+  },
+  pillValue: { fontSize: 16 },
+  pillLabel: { fontSize: 9, marginTop: 1 },
+  progressBar: {
+    height: 6,
+    borderRadius: 3,
+    marginTop: 6,
+    marginHorizontal: 2,
+    borderWidth: 1,
+    overflow: "hidden",
+    flexDirection: "row",
+    alignItems: "center",
+    position: "relative",
+  },
+  progressFill: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    borderRadius: 3,
+  },
+  progressLabel: {
+    position: "absolute",
+    right: 6,
+    fontSize: 8,
+    fontFamily: "SpaceGrotesk_400Regular",
+  },
+  booksContainer: {
+    marginTop: 8,
+    paddingLeft: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: "rgba(29,184,142,0.3)",
+  },
+  summaryRow: {
+    flexDirection: "row",
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 10,
+    overflow: "hidden",
+  },
+  summaryDivider: { width: 1 },
+  summaryCell: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 10,
+  },
+  summaryCellValue: { fontSize: 18 },
+  summaryCellLabel: { fontSize: 9, marginTop: 2, textAlign: "center" },
+  addBookBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    marginBottom: 4,
+    marginTop: 4,
+  },
+  addBookLabel: { fontSize: 13 },
 });
