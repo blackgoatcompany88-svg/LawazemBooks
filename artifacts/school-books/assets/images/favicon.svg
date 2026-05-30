@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <circle cx="256" cy="256" r="256" fill="#181C24"/>
+  <circle cx="256" cy="256" r="230" fill="#1DB88E"/>
+  <circle cx="256" cy="256" r="200" fill="#181C24"/>
+  <text
+    x="256"
+    y="278"
+    text-anchor="middle"
+    font-size="100"
+    fill="#1DB88E"
+    font-family="Arial, sans-serif"
+    font-weight="bold"
+  >اللوازم</text>
+</svg>

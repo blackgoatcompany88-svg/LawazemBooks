@@ -420,8 +420,8 @@ export default function DashboardScreen() {
               {schoolInfo.schoolName || "مدرستي"}
             </Text>
           </View>
-          <View style={[styles.logoCircle, { backgroundColor: colors.primary }]}>
-            <Text style={[styles.logoText, { fontFamily: "NotoKufiArabic_700Bold" }]}>اللوازم</Text>
+          <View style={[styles.iconBtn, { backgroundColor: "rgba(29,184,142,0.15)", borderColor: "rgba(29,184,142,0.3)" }]}>
+            <Feather name="book-open" size={20} color={colors.primary} />
           </View>
         </View>
 
