@@ -53,8 +53,6 @@ const SAMPLE_GRADES = [
   "السادس الأساسي",
   "السابع الأساسي",
   "الثامن الأساسي",
-  "التاسع الأساسي",
-  "العاشر",
 ];
 
 function calcNeed(studentCount: number, schoolBalance: number): number {
@@ -69,7 +67,7 @@ function generateId(): string {
 export function BooksProvider({ children }: { children: React.ReactNode }) {
   const [books, setBooks] = useState<BookEntry[]>([]);
   const [schoolInfo, setSchoolInfo] = useState<SchoolInfo>({
-    schoolName: "",
+    schoolName: "عائشة بنت أبي بكر الأساسية المختلطة",
     directorate: "",
     phone: "",
   });

@@ -19,7 +19,7 @@ import { BookCard } from "@/components/BookCard";
 import { EmptyState } from "@/components/EmptyState";
 import { GlassCard } from "@/components/GlassCard";
 import { SearchBar } from "@/components/SearchBar";
-import { BookEntry, useBooks } from "@/context/BooksContext";
+import { BookEntry, GRADES, useBooks } from "@/context/BooksContext";
 import { useColors } from "@/hooks/useColors";
 
 if (
@@ -300,23 +300,27 @@ export default function DashboardScreen() {
   const [expandedGrades, setExpandedGrades] = useState<Set<string>>(new Set());
 
   const groups = useMemo<GradeGroup[]>(() => {
-    const filtered = search.trim()
-      ? books.filter(
-          (b) =>
-            b.bookName.toLowerCase().includes(search.toLowerCase()) ||
-            b.grade.toLowerCase().includes(search.toLowerCase())
-        )
-      : books;
-
     const map: Record<string, BookEntry[]> = {};
-    filtered.forEach((b) => {
+
+    // seed every fixed grade with an empty array so they always appear
+    GRADES.forEach((g) => { map[g] = []; });
+
+    // fill with actual books, filtering by search if needed
+    books.forEach((b) => {
+      const q = search.trim().toLowerCase();
+      if (
+        q &&
+        !b.bookName.toLowerCase().includes(q) &&
+        !b.grade.toLowerCase().includes(q)
+      )
+        return;
       if (!map[b.grade]) map[b.grade] = [];
       map[b.grade].push(b);
     });
 
-    return Object.entries(map)
-      .sort(([a], [b]) => a.localeCompare(b, "ar"))
-      .map(([grade, gradeBooks]) => ({
+    return GRADES.map((grade) => {
+      const gradeBooks = map[grade] ?? [];
+      return {
         grade,
         books: [...gradeBooks].sort((a, b) => a.number - b.number),
         totalBooks: gradeBooks.length,
@@ -324,7 +328,8 @@ export default function DashboardScreen() {
         totalBalance: gradeBooks.reduce((s, b) => s + b.schoolBalance, 0),
         totalNeed: gradeBooks.reduce((s, b) => s + b.actualNeed, 0),
         totalReceived: gradeBooks.reduce((s, b) => s + b.receivedLastYear, 0),
-      }));
+      };
+    });
   }, [books, search]);
 
   const toggleGrade = (grade: string) => {
@@ -481,30 +486,14 @@ export default function DashboardScreen() {
           />
         </View>
 
-        {groups.length === 0 ? (
-          <EmptyState
-            icon="book-open"
-            title={search ? "لا توجد نتائج" : "ابدأ بإضافة الكتب"}
-            description={
-              search
-                ? "جرّب البحث بكلمة أخرى"
-                : "اذهب إلى تبويب الكتب لإضافة طلبات الكتب المدرسية"
-            }
-            actionLabel={!search ? "إضافة كتاب" : undefined}
-            onAction={
-              !search ? () => router.push("/book/new") : undefined
-            }
+        {groups.map((group) => (
+          <GradeSection
+            key={group.grade}
+            group={group}
+            expanded={expandedGrades.has(group.grade)}
+            onToggle={() => toggleGrade(group.grade)}
           />
-        ) : (
-          groups.map((group) => (
-            <GradeSection
-              key={group.grade}
-              group={group}
-              expanded={expandedGrades.has(group.grade)}
-              onToggle={() => toggleGrade(group.grade)}
-            />
-          ))
-        )}
+        ))}
       </ScrollView>
     </View>
   );
