@@ -14,7 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { GlassCard } from "@/components/GlassCard";
-import { GRADES, useBooks } from "@/context/BooksContext";
+import { GRADES, getAcademicYear, getSemester, useBooks } from "@/context/BooksContext";
 import { useColors } from "@/hooks/useColors";
 
 export default function EditBookScreen() {
@@ -22,7 +22,6 @@ export default function EditBookScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { getBook, updateBook, gradeStudents } = useBooks();
-
   const book = getBook(id);
 
   const [form, setForm] = useState({
@@ -32,15 +31,13 @@ export default function EditBookScreen() {
     grade: book?.grade ?? "",
     receivedLastYear: String(book?.receivedLastYear ?? ""),
     schoolBalance: String(book?.schoolBalance ?? ""),
+    academicYear: book?.academicYear ?? getAcademicYear(new Date(book?.createdAt ?? Date.now())),
+    semester: (book?.semester ?? getSemester(new Date(book?.createdAt ?? Date.now()))) as 1 | 2,
   });
-
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [gradeOpen, setGradeOpen] = useState(false);
 
-  if (!book) {
-    router.back();
-    return null;
-  }
+  if (!book) { router.back(); return null; }
 
   const students = gradeStudents[form.grade] ?? 0;
   const calcNeed = Math.max(0, students - (Number(form.schoolBalance) || 0));
@@ -66,6 +63,8 @@ export default function EditBookScreen() {
       grade: form.grade,
       receivedLastYear: Number(form.receivedLastYear) || 0,
       schoolBalance: Number(form.schoolBalance) || 0,
+      academicYear: form.academicYear.trim() || getAcademicYear(),
+      semester: form.semester,
     });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     router.back();
@@ -105,6 +104,34 @@ export default function EditBookScreen() {
           <Field label="الجزء" value={form.part} onChangeText={(t) => setForm({ ...form, part: t })} />
         </GlassCard>
 
+        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>السنة الدراسية والفصل</Text>
+        <GlassCard style={styles.section}>
+          <Field
+            label="السنة الدراسية"
+            value={form.academicYear}
+            onChangeText={(t) => setForm({ ...form, academicYear: t })}
+            placeholder="مثال: 2025-2026"
+          />
+          <Divider />
+          <View style={styles.semField}>
+            <Text style={[styles.semLabel, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>الفصل الدراسي</Text>
+            <View style={[styles.semToggle, { backgroundColor: colors.muted, borderColor: colors.glassBorder }]}>
+              {([1, 2] as const).map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  style={[styles.semBtn, { backgroundColor: form.semester === s ? colors.primary : "transparent" }]}
+                  onPress={() => setForm({ ...form, semester: s })}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.semBtnText, { color: form.semester === s ? "#fff" : colors.mutedForeground, fontFamily: "NotoKufiArabic_700Bold" }]}>
+                    {s === 1 ? "الأول" : "الثاني"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </GlassCard>
+
         <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>الصف الدراسي</Text>
         <GlassCard style={styles.section}>
           <TouchableOpacity onPress={() => setGradeOpen(!gradeOpen)} style={styles.gradeSelector}>
@@ -112,7 +139,7 @@ export default function EditBookScreen() {
             <Text style={[styles.gradeValue, { color: form.grade ? colors.foreground : colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>
               {form.grade || "اختر الصف"}
             </Text>
-            <Text style={[styles.gradeLabel, { color: colors.mutedForeground }]}>الصف</Text>
+            <Text style={[styles.gradeLabel, { color: colors.mutedForeground, fontFamily: "NotoKufiArabic_400Regular" }]}>الصف</Text>
           </TouchableOpacity>
           {errors.grade && <Text style={[styles.error, { color: colors.destructive }]}>{errors.grade}</Text>}
           {gradeOpen && (
@@ -210,9 +237,14 @@ const styles = StyleSheet.create({
   fieldInput: { fontSize: 16, paddingVertical: 2, borderBottomWidth: 1 },
   error: { fontSize: 11, textAlign: "right", marginTop: 4 },
   divider: { height: 1, marginHorizontal: 14 },
+  semField: { padding: 14 },
+  semLabel: { fontSize: 11, textAlign: "right", marginBottom: 10 },
+  semToggle: { flexDirection: "row", borderRadius: 10, borderWidth: 1, overflow: "hidden" },
+  semBtn: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 8 },
+  semBtnText: { fontSize: 13 },
   gradeSelector: { flexDirection: "row", alignItems: "center", padding: 14, gap: 8 },
   gradeValue: { flex: 1, fontSize: 15, textAlign: "right" },
-  gradeLabel: { fontSize: 11, fontFamily: "NotoKufiArabic_400Regular" },
+  gradeLabel: { fontSize: 11 },
   gradeList: { borderTopWidth: 1 },
   gradeItem: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12 },
   gradeItemRight: { flex: 1, alignItems: "flex-end" },
