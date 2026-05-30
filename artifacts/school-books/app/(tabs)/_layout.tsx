@@ -16,9 +16,9 @@ function NativeTabLayout() {
         <Icon sf={{ default: "chart.bar", selected: "chart.bar.fill" }} />
         <Label>الرئيسية</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="books">
-        <Icon sf={{ default: "books.vertical", selected: "books.vertical.fill" }} />
-        <Label>الكتب</Label>
+      <NativeTabs.Trigger name="stats">
+        <Icon sf={{ default: "chart.pie", selected: "chart.pie.fill" }} />
+        <Label>إحصائية</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} />
@@ -77,14 +77,14 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="books"
+        name="stats"
         options={{
-          title: "الكتب",
+          title: "إحصائية",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="books.vertical.fill" tintColor={color} size={22} />
+              <SymbolView name="chart.pie.fill" tintColor={color} size={22} />
             ) : (
-              <Feather name="book" size={22} color={color} />
+              <Feather name="pie-chart" size={22} color={color} />
             ),
         }}
       />
@@ -100,6 +100,7 @@ function ClassicTabLayout() {
             ),
         }}
       />
+      <Tabs.Screen name="books" options={{ href: null }} />
     </Tabs>
   );
 }
