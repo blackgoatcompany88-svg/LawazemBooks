@@ -8,18 +8,22 @@ import {
   SpaceGrotesk_600SemiBold,
   useFonts as useGroteskFonts,
 } from "@expo-google-fonts/space-grotesk";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
-import { Platform } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Platform, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { PinLock } from "@/components/PinLock";
 import { BooksProvider } from "@/context/BooksContext";
+
+export const PIN_KEY = "@app_pin_v1";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -55,6 +59,19 @@ export default function RootLayout() {
   const fontsLoaded = kufiLoaded && groteskLoaded;
   const fontError = kufiError || groteskError;
 
+  const [storedPin, setStoredPin] = useState<string | null>(null);
+  const [pinChecked, setPinChecked] = useState(false);
+  const [locked, setLocked] = useState(false);
+  const [pinError, setPinError] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(PIN_KEY).then((pin) => {
+      setStoredPin(pin);
+      setLocked(!!pin);
+      setPinChecked(true);
+    });
+  }, []);
+
   useEffect(() => {
     if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
@@ -82,7 +99,18 @@ export default function RootLayout() {
     link.href = href;
   }, []);
 
+  const handlePinSubmit = (entered: string) => {
+    if (entered === storedPin) {
+      setPinError(false);
+      setLocked(false);
+    } else {
+      setPinError(true);
+      setTimeout(() => setPinError(false), 800);
+    }
+  };
+
   if (!fontsLoaded && !fontError) return null;
+  if (!pinChecked) return null;
 
   return (
     <SafeAreaProvider>
@@ -93,6 +121,16 @@ export default function RootLayout() {
               <KeyboardProvider>
                 <StatusBar style="light" />
                 <RootLayoutNav />
+                {locked && (
+                  <View style={StyleSheet.absoluteFill}>
+                    <PinLock
+                      title="أدخل كلمة السر"
+                      subtitle="مطلوب للوصول إلى التطبيق"
+                      onComplete={handlePinSubmit}
+                      error={pinError}
+                    />
+                  </View>
+                )}
               </KeyboardProvider>
             </GestureHandlerRootView>
           </BooksProvider>
