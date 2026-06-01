@@ -1,0 +1,17 @@
+[build]
+  command = "pnpm --filter @workspace/school-books exec expo export --platform web"
+  publish = "artifacts/school-books/dist"
+
+[build.environment]
+  NODE_VERSION = "20"
+  PNPM_VERSION = "10"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/_expo/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
