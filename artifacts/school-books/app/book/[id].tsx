@@ -31,6 +31,7 @@ export default function EditBookScreen() {
     grade: book?.grade ?? "",
     receivedLastYear: String(book?.receivedLastYear ?? ""),
     schoolBalance: String(book?.schoolBalance ?? ""),
+    teacherCopies: String(book?.teacherCopies ?? ""),
     academicYear: book?.academicYear ?? getAcademicYear(new Date(book?.createdAt ?? Date.now())),
     semester: (book?.semester ?? getSemester(new Date(book?.createdAt ?? Date.now()))) as 1 | 2,
   });
@@ -63,6 +64,9 @@ export default function EditBookScreen() {
       grade: form.grade,
       receivedLastYear: Number(form.receivedLastYear) || 0,
       schoolBalance: Number(form.schoolBalance) || 0,
+      teacherCopies: Number(form.teacherCopies) || 0,
+      receivedCount: book.receivedCount,
+      deliveredCount: book.deliveredCount,
       academicYear: form.academicYear.trim() || getAcademicYear(),
       semester: form.semester,
     });
@@ -178,6 +182,8 @@ export default function EditBookScreen() {
           <Field label="رصيد المدرسة" value={form.schoolBalance} onChangeText={(t) => setForm({ ...form, schoolBalance: t })} numeric />
           <Divider />
           <Field label="المستلم في العام السابق" value={form.receivedLastYear} onChangeText={(t) => setForm({ ...form, receivedLastYear: t })} numeric />
+          <Divider />
+          <Field label="نسخ المعلم" value={form.teacherCopies} onChangeText={(t) => setForm({ ...form, teacherCopies: t })} numeric />
         </GlassCard>
 
         <GlassCard variant="accent" style={styles.needPreview}>

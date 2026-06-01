@@ -18,6 +18,9 @@ export interface BookEntry {
   actualNeed: number;
   academicYear: string;
   semester: 1 | 2;
+  teacherCopies: number;
+  receivedCount: number;
+  deliveredCount: number;
   createdAt: string;
 }
 
@@ -36,6 +39,10 @@ interface BooksContextType {
     id: string,
     book: Omit<BookEntry, "id" | "actualNeed" | "createdAt">
   ) => void;
+  updateBookTracking: (
+    id: string,
+    tracking: Pick<BookEntry, "teacherCopies" | "receivedCount" | "deliveredCount">
+  ) => void;
   deleteBook: (id: string) => void;
   updateSchoolInfo: (info: SchoolInfo) => void;
   updateGradeStudents: (grade: string, count: number) => void;
@@ -44,7 +51,7 @@ interface BooksContextType {
 
 const BooksContext = createContext<BooksContextType | null>(null);
 
-const BOOKS_KEY = "@school_books_v3";
+const BOOKS_KEY = "@school_books_v4";
 const SCHOOL_KEY = "@school_info_v1";
 const GRADE_STUDENTS_KEY = "@grade_students_v1";
 
@@ -93,6 +100,9 @@ function migrateBook(raw: Record<string, unknown>): BookEntry {
     actualNeed: (raw.actualNeed as number) ?? 0,
     academicYear: (raw.academicYear as string) ?? getAcademicYear(d),
     semester: (raw.semester as 1 | 2) ?? getSemester(d),
+    teacherCopies: (raw.teacherCopies as number) ?? 0,
+    receivedCount: (raw.receivedCount as number) ?? 0,
+    deliveredCount: (raw.deliveredCount as number) ?? 0,
     createdAt,
   };
 }
@@ -154,6 +164,19 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
     [books, gradeStudents, saveBooks]
   );
 
+  const updateBookTracking = useCallback(
+    (
+      id: string,
+      tracking: Pick<BookEntry, "teacherCopies" | "receivedCount" | "deliveredCount">
+    ) => {
+      const updated = books.map((b) =>
+        b.id === id ? { ...b, ...tracking } : b
+      );
+      saveBooks(updated);
+    },
+    [books, saveBooks]
+  );
+
   const deleteBook = useCallback(
     (id: string) => saveBooks(books.filter((b) => b.id !== id)),
     [books, saveBooks]
@@ -193,6 +216,7 @@ export function BooksProvider({ children }: { children: React.ReactNode }) {
         gradeStudents,
         addBook,
         updateBook,
+        updateBookTracking,
         deleteBook,
         updateSchoolInfo,
         updateGradeStudents,

@@ -31,6 +31,7 @@ export default function NewBookScreen() {
     grade: "",
     receivedLastYear: "",
     schoolBalance: "",
+    teacherCopies: "",
     academicYear: getAcademicYear(),
     semester: getSemester() as 1 | 2,
   });
@@ -63,6 +64,9 @@ export default function NewBookScreen() {
       grade: form.grade,
       receivedLastYear: Number(form.receivedLastYear) || 0,
       schoolBalance: Number(form.schoolBalance) || 0,
+      teacherCopies: Number(form.teacherCopies) || 0,
+      receivedCount: 0,
+      deliveredCount: 0,
       academicYear: form.academicYear.trim() || getAcademicYear(),
       semester: form.semester,
     });
@@ -180,6 +184,8 @@ export default function NewBookScreen() {
           <Field label="رصيد المدرسة" value={form.schoolBalance} onChangeText={(t) => setForm({ ...form, schoolBalance: t })} numeric />
           <Divider />
           <Field label="العدد المستلم في العام السابق" value={form.receivedLastYear} onChangeText={(t) => setForm({ ...form, receivedLastYear: t })} numeric />
+          <Divider />
+          <Field label="نسخ المعلم" value={form.teacherCopies} onChangeText={(t) => setForm({ ...form, teacherCopies: t })} numeric />
         </GlassCard>
 
         {previewNeed !== null && students > 0 && (
