@@ -53,7 +53,8 @@ export function BookCard({ book, gradeStudents = 0 }: BookCardProps) {
 
   const needColor = book.actualNeed > 0 ? colors.warning : colors.primary;
 
-  const remaining = book.receivedCount - book.deliveredCount;
+  const totalDistributed = book.deliveredCount + book.teacherCopies;
+  const remaining = book.receivedCount - totalDistributed;
   const remainingColor =
     remaining < 0 ? colors.destructive : remaining === 0 ? colors.mutedForeground : colors.primary;
 
@@ -100,9 +101,7 @@ export function BookCard({ book, gradeStudents = 0 }: BookCardProps) {
             <DataItem label="الطلاب" value={gradeStudents} color={colors.accent} />
           )}
           <DataItem label="الرصيد" value={book.schoolBalance} color={colors.primary} />
-          {book.teacherCopies > 0 && (
-            <DataItem label="معلم" value={book.teacherCopies} color={colors.mutedForeground} />
-          )}
+          <DataItem label="العام الماضي" value={book.receivedLastYear} color={colors.mutedForeground} />
         </View>
 
         {/* ── Progress bar ── */}
@@ -215,7 +214,8 @@ function TrackingPanel({
     onUpdate(book.id, next);
   };
 
-  const remaining = local.receivedCount - local.deliveredCount;
+  const totalDistributed = local.deliveredCount + local.teacherCopies;
+  const remaining = local.receivedCount - totalDistributed;
   const remainingColor =
     remaining < 0
       ? colors.destructive
@@ -230,19 +230,6 @@ function TrackingPanel({
         { borderTopColor: colors.border, backgroundColor: "rgba(29,184,142,0.04)" },
       ]}
     >
-      {/* نسخ معلم */}
-      <TrackRow
-        icon="user"
-        label="نسخ المعلم"
-        value={local.teacherCopies}
-        iconColor={colors.mutedForeground}
-        onDec={() => update("teacherCopies", local.teacherCopies - 1)}
-        onInc={() => update("teacherCopies", local.teacherCopies + 1)}
-        onEdit={(v) => update("teacherCopies", v)}
-      />
-
-      <View style={[styles.trackDivider, { backgroundColor: colors.border }]} />
-
       {/* المستلم */}
       <TrackRow
         icon="download"
@@ -257,11 +244,24 @@ function TrackingPanel({
 
       <View style={[styles.trackDivider, { backgroundColor: colors.border }]} />
 
-      {/* المسلّم */}
+      {/* نسخ معلم */}
+      <TrackRow
+        icon="user"
+        label="نسخ المعلم"
+        sublabel="تُحتسب ضمن التوزيع"
+        value={local.teacherCopies}
+        iconColor={colors.mutedForeground}
+        onDec={() => update("teacherCopies", local.teacherCopies - 1)}
+        onInc={() => update("teacherCopies", local.teacherCopies + 1)}
+        onEdit={(v) => update("teacherCopies", v)}
+      />
+
+      <View style={[styles.trackDivider, { backgroundColor: colors.border }]} />
+
+      {/* المسلّم للطلاب */}
       <TrackRow
         icon="upload"
-        label="المسلَّم"
-        sublabel="للطلاب"
+        label="المسلَّم للطلاب"
         value={local.deliveredCount}
         iconColor={colors.accent}
         onDec={() => update("deliveredCount", local.deliveredCount - 1)}
@@ -269,19 +269,23 @@ function TrackingPanel({
         onEdit={(v) => update("deliveredCount", v)}
       />
 
+      {/* إجمالي التوزيع */}
+      <View style={[styles.totalRow, { backgroundColor: "rgba(240,160,48,0.07)", borderColor: "rgba(240,160,48,0.2)" }]}>
+        <Text style={[styles.totalLabel, { color: colors.accent, fontFamily: "NotoKufiArabic_400Regular" }]}>
+          إجمالي الموزَّع (طلاب + معلمون)
+        </Text>
+        <Text style={[styles.totalValue, { color: colors.accent, fontFamily: "SpaceGrotesk_600SemiBold" }]}>
+          {totalDistributed}
+        </Text>
+      </View>
+
       {/* المتبقي */}
       <View
         style={[
           styles.remainingRow,
           {
-            backgroundColor:
-              remaining < 0
-                ? "rgba(239,68,68,0.08)"
-                : "rgba(29,184,142,0.08)",
-            borderColor:
-              remaining < 0
-                ? "rgba(239,68,68,0.2)"
-                : "rgba(29,184,142,0.2)",
+            backgroundColor: remaining < 0 ? "rgba(239,68,68,0.08)" : "rgba(29,184,142,0.08)",
+            borderColor: remaining < 0 ? "rgba(239,68,68,0.2)" : "rgba(29,184,142,0.2)",
           },
         ]}
       >
@@ -290,12 +294,7 @@ function TrackingPanel({
           size={14}
           color={remainingColor}
         />
-        <Text
-          style={[
-            styles.remainingLabel,
-            { color: remainingColor, fontFamily: "NotoKufiArabic_400Regular" },
-          ]}
-        >
+        <Text style={[styles.remainingLabel, { color: remainingColor, fontFamily: "NotoKufiArabic_400Regular" }]}>
           {remaining < 0
             ? `عجز ${Math.abs(remaining)} نسخة`
             : `المتبقي في المخزن: ${remaining} نسخة`}
@@ -549,11 +548,24 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
   },
 
+  totalRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  totalLabel: { fontSize: 12 },
+  totalValue: { fontSize: 20 },
+
   remainingRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    marginTop: 10,
+    marginTop: 8,
     padding: 10,
     borderRadius: 10,
     borderWidth: 1,
